@@ -1,5 +1,3 @@
-Due to the constant use of this repository by multi-billion dollar corporations that have never contributed, coupled with the significant maintenance effort, this is the last public commit of Phishing_Pot. New updates will only be shared with individual researchers. Total number of samples, including private ones: 10362.
----
 ![Phishing Pot](https://github.com/rf-peixoto/phishing_pot/blob/main/img/phishing_pot.png)
 
 [![rf-peixoto - Phishing Pot](https://img.shields.io/static/v1?label=rf-peixoto&message=PhishingPot&color=yellow&logo=github)](https://github.com/rf-peixoto/phishing_pot)
@@ -27,4 +25,5 @@ ___
 * Your servers are not configured correctly and allow attackers to carry out email spoofing attacks.
 #### Can I integrate this repository into my feeds?
 See ![LICENSE](https://github.com/rf-peixoto/phishing_pot/blob/main/LICENSE)
-
+---
+Due to the constant use of this repository by multi-billion dollar corporations that have never contributed, coupled with the significant maintenance effort, this is the last public commit of Phishing_Pot. New updates will only be shared with individual researchers. Total number of samples, including private ones: 10362.
