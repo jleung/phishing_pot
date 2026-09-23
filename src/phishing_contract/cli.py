@@ -1,5 +1,6 @@
 """Command-line interface for deterministic offline corpus manifests."""
 
+import hashlib
 import json
 import re
 import sys
@@ -13,13 +14,18 @@ from phishing_contract.classify import (
     write_decisions,
 )
 from phishing_contract.discover import discover_clusters, write_dossiers
-from phishing_contract.features import extract_feature_records, write_features
+from phishing_contract.features import (
+    extract_feature_record,
+    extract_feature_records,
+    serialize_feature,
+    write_features,
+)
 from phishing_contract.manifest import (
     DuplicateSampleIdError,
     build_manifest,
     write_manifest,
 )
-from phishing_contract.models import ManifestConfiguration
+from phishing_contract.models import ManifestConfiguration, SampleId, SourceRecord
 from phishing_contract.policy import (
     DEFAULT_MODEL_ID,
     ModelPolicyError,
@@ -56,6 +62,7 @@ DISCOVER_OPTIONS: Final = frozenset(
     }
 )
 DIFF_OPTIONS: Final = frozenset({"--before", "--after"})
+SHOW_OPTIONS: Final = frozenset({"--corpus", "--sample"})
 DEFAULT_DISCOVERY_THRESHOLD: Final = 0.35
 DEFAULT_MIN_CLUSTER_SIZE: Final = 3
 
@@ -339,6 +346,56 @@ def _run_discover(arguments: tuple[str, ...]) -> int:
     return 0
 
 
+def _run_show(arguments: tuple[str, ...]) -> int:
+    """Print one sample's raw headers alongside its sanitized features."""
+    try:
+        options = _parse_options(arguments, SHOW_OPTIONS, ("--corpus", "--sample"))
+    except CliUsageError as error:
+        _write_error("usage", str(error))
+        return 2
+
+    try:
+        sample_id = int(options["--sample"])
+    except ValueError:
+        _write_error("usage", "Sample must be a non-negative integer.")
+        return 2
+    if sample_id < 0:
+        _write_error("usage", "Sample must be a non-negative integer.")
+        return 2
+
+    corpus_directory = Path(options["--corpus"])
+    relative_path = f"sample-{sample_id}.eml"
+    source_path = corpus_directory / relative_path
+    if not source_path.is_file():
+        payload = {"error": "not_found", "sample": sample_id}
+        _ = sys.stderr.write(json.dumps(payload, sort_keys=True) + "\n")
+        return 2
+
+    raw_bytes = source_path.read_bytes()
+    source = SourceRecord(
+        sample_id=SampleId(sample_id),
+        relative_path=relative_path,
+        byte_size=len(raw_bytes),
+        sha256=hashlib.sha256(raw_bytes).hexdigest(),
+    )
+    record = extract_feature_record(corpus_directory, source)
+
+    _ = sys.stdout.write(f"# sample-{sample_id}\n")
+    _ = sys.stdout.write(_raw_header_block(raw_bytes) + "\n")
+    _ = sys.stdout.write("\n")
+    _ = sys.stdout.write(serialize_feature(record))
+    return 0
+
+
+def _raw_header_block(raw_bytes: bytes) -> str:
+    """Return the header section of a message, up to the first blank line."""
+    for separator in (b"\r\n\r\n", b"\n\n"):
+        index = raw_bytes.find(separator)
+        if index != -1:
+            return raw_bytes[:index].decode("utf-8", errors="replace")
+    return raw_bytes.decode("utf-8", errors="replace")
+
+
 def _run_diff(arguments: tuple[str, ...]) -> int:
     """Compare two decision runs and report the reflow between them."""
     try:
@@ -459,4 +516,5 @@ COMMAND_HANDLERS: Final = {
     "discover": _run_discover,
     "diff": _run_diff,
     "features": _run_features,
+    "show": _run_show,
 }
