@@ -183,6 +183,74 @@ def write_decisions(decisions: tuple[Decision, ...], output_path: Path) -> None:
     )
 
 
+def load_decisions(path: Path) -> tuple[Decision, ...]:
+    """Load a decision audit trail written by serialize_decision."""
+    decisions: list[Decision] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line:
+            continue
+        payload = cast("dict[str, object]", json.loads(line))
+        decisions.append(
+            Decision(
+                sample_id=_int_field(payload, "sample_id"),
+                relative_path=str(payload["relative_path"]),
+                decision=str(payload["decision"]),
+                action=None
+                if payload.get("action") is None
+                else str(payload["action"]),
+                matched_rules=tuple(
+                    _matched_rule_from_json(raw)
+                    for raw in cast("list[object]", payload["matched_rules"])
+                ),
+                rejected_candidates=tuple(
+                    _rejected_candidate_from_json(raw)
+                    for raw in cast(
+                        "list[object]", payload["rejected_candidates"]
+                    )
+                ),
+                fallback_reason=(
+                    None
+                    if payload.get("fallback_reason") is None
+                    else str(payload["fallback_reason"])
+                ),
+                registry_sha256=str(payload["registry_sha256"]),
+                source_sha256=str(payload["source_sha256"]),
+            )
+        )
+    return tuple(decisions)
+
+
+def _int_field(payload: dict[str, object], key: str) -> int:
+    """Read a required integer field, rejecting non-integer JSON values."""
+    value = payload[key]
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    msg = f"Expected an integer for {key!r}, got {value!r}."
+    raise ValueError(msg)
+
+
+def _matched_rule_from_json(raw: object) -> MatchedRule:
+    entry = cast("dict[str, object]", raw)
+    return MatchedRule(
+        field=str(entry["field"]),
+        op=str(entry["op"]),
+        matched_evidence=str(entry["matched_evidence"]),
+    )
+
+
+def _rejected_candidate_from_json(raw: object) -> RejectedCandidate:
+    entry = cast("dict[str, object]", raw)
+    return RejectedCandidate(
+        category=str(entry["category"]),
+        priority=_int_field(entry, "priority"),
+        matched_rules=tuple(
+            _matched_rule_from_json(rule)
+            for rule in cast("list[object]", entry["matched_rules"])
+        ),
+        lost_to=str(entry["lost_to"]),
+    )
+
+
 def _evaluate_rule(rule: Rule, record: FeatureRecord) -> MatchedRule | None:
     if rule.op == "regex":
         return _regex_match(rule, record)

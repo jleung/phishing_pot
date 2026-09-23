@@ -1,0 +1,13 @@
+schema_version = 1
+
+[[category]]
+id = "login-update-lure"
+description = "Account update lures"
+action = "quarantine"
+priority = 20
+acceptance = [1]
+
+[[category.rules]]
+field = "body_evidence"
+op = "regex"
+value = "zzz-absent-term"

@@ -7,6 +7,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, TypedDict, override
 
+from phishing_contract.classify import (
+    classify_record,
+    load_decisions,
+    write_decisions,
+)
+from phishing_contract.discover import discover_clusters, write_dossiers
 from phishing_contract.features import extract_feature_records, write_features
 from phishing_contract.manifest import (
     DuplicateSampleIdError,
@@ -19,6 +25,15 @@ from phishing_contract.policy import (
     ModelPolicyError,
     ensure_model_allowed,
 )
+from phishing_contract.registry import RegistryError, load_registry
+from phishing_contract.report import (
+    AcceptanceError,
+    check_acceptance,
+    diff_decisions,
+    serialize_diff,
+    serialize_summary,
+    summarize_decisions,
+)
 
 RUN_ID_PATTERN: Final = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*\Z")
 DEFAULT_OUTPUT_DIRECTORY: Final = "artifacts/manifests"
@@ -26,6 +41,23 @@ DEFAULT_SOURCE_COMMIT: Final = "unavailable"
 MANIFEST_OPTIONS: Final = frozenset(
     {"--corpus", "--model", "--output-dir", "--run-id", "--source-commit"}
 )
+CLASSIFY_OPTIONS: Final = frozenset(
+    {"--corpus", "--registry", "--run-id", "--output-dir", "--source-commit"}
+)
+DISCOVER_OPTIONS: Final = frozenset(
+    {
+        "--corpus",
+        "--registry",
+        "--run-id",
+        "--output-dir",
+        "--source-commit",
+        "--threshold",
+        "--min-size",
+    }
+)
+DIFF_OPTIONS: Final = frozenset({"--before", "--after"})
+DEFAULT_DISCOVERY_THRESHOLD: Final = 0.35
+DEFAULT_MIN_CLUSTER_SIZE: Final = 3
 
 
 class ErrorJson(TypedDict):
@@ -65,6 +97,30 @@ class ManifestCommand:
     source_commit: str
 
 
+@dataclass(frozen=True, slots=True)
+class ClassifyCommand:
+    """Parsed options shared by the classify and discover commands."""
+
+    corpus_directory: Path
+    registry_path: Path
+    output_directory: Path
+    run_id: str
+    source_commit: str
+
+
+@dataclass(frozen=True, slots=True)
+class DiscoverCommand:
+    """Parsed options for the discover command."""
+
+    corpus_directory: Path
+    registry_path: Path
+    output_directory: Path
+    run_id: str
+    source_commit: str
+    threshold: float
+    min_cluster_size: int
+
+
 def main() -> int:
     """Run the CLI from process arguments and return its exit code."""
     return run(tuple(sys.argv[1:]))
@@ -72,8 +128,14 @@ def main() -> int:
 
 def run(arguments: tuple[str, ...]) -> int:
     """Run a CLI request while converting expected contract failures to JSON."""
-    if arguments and arguments[0] == "features":
-        return _run_features(arguments[1:])
+    if arguments:
+        handler = COMMAND_HANDLERS.get(arguments[0])
+        if handler is not None:
+            return handler(arguments[1:])
+    return _run_manifest(arguments)
+
+
+def _run_manifest(arguments: tuple[str, ...]) -> int:
     try:
         command = _parse_command(arguments)
         ensure_model_allowed(command.model_identifier)
@@ -174,8 +236,227 @@ def _write_error(error_name: str, detail: str) -> None:
     _ = sys.stderr.write(json.dumps(payload, sort_keys=True) + "\n")
 
 
+def _run_classify(arguments: tuple[str, ...]) -> int:
+    """Classify a corpus with a category registry and audit every decision."""
+    command, usage_error = _parse_classify_command(arguments)
+    if command is None:
+        _write_error("usage", usage_error or "Usage error.")
+        return 2
+    try:
+        registry = load_registry(command.registry_path)
+    except RegistryError as error:
+        _write_error("registry", str(error))
+        return 2
+
+    try:
+        ensure_model_allowed(DEFAULT_MODEL_ID)
+        manifest = build_manifest(
+            ManifestConfiguration(
+                corpus_directory=command.corpus_directory,
+                model_identifier=DEFAULT_MODEL_ID,
+                source_commit=command.source_commit,
+            )
+        )
+        features = extract_feature_records(command.corpus_directory, manifest)
+    except ModelPolicyError as error:
+        _write_model_policy_error(error)
+        return 2
+    except DuplicateSampleIdError as error:
+        _write_error("duplicate_sample_id", str(error))
+        return 2
+
+    decisions = tuple(classify_record(record, registry) for record in features)
+    decisions_path = command.output_directory / f"{command.run_id}.decisions.jsonl"
+    summary_path = command.output_directory / f"{command.run_id}.summary.json"
+    write_decisions(decisions, decisions_path)
+    summary = serialize_summary(summarize_decisions(decisions))
+    _ = summary_path.write_text(summary + "\n", encoding="utf-8")
+    try:
+        check_acceptance(registry, decisions)
+    except AcceptanceError as error:
+        payload = {
+            "error": "acceptance_failure",
+            "category": error.category,
+            "sample_id": error.sample_id,
+            "actual": error.actual,
+        }
+        _ = sys.stderr.write(json.dumps(payload, sort_keys=True) + "\n")
+        return 3
+
+    _ = sys.stdout.write(f"{decisions_path}\n")
+    return 0
+
+
+def _run_discover(arguments: tuple[str, ...]) -> int:
+    """Cluster the unmatched samples and write a reviewable dossier."""
+    command, usage_error = _parse_discover_command(arguments)
+    if command is None:
+        _write_error("usage", usage_error or "Usage error.")
+        return 2
+    try:
+        registry = load_registry(command.registry_path)
+    except RegistryError as error:
+        _write_error("registry", str(error))
+        return 2
+
+    try:
+        ensure_model_allowed(DEFAULT_MODEL_ID)
+        manifest = build_manifest(
+            ManifestConfiguration(
+                corpus_directory=command.corpus_directory,
+                model_identifier=DEFAULT_MODEL_ID,
+                source_commit=command.source_commit,
+            )
+        )
+        features = extract_feature_records(command.corpus_directory, manifest)
+    except ModelPolicyError as error:
+        _write_model_policy_error(error)
+        return 2
+    except DuplicateSampleIdError as error:
+        _write_error("duplicate_sample_id", str(error))
+        return 2
+
+    classified = tuple(
+        (record, classify_record(record, registry)) for record in features
+    )
+    unmatched = tuple(
+        record for record, decision in classified if decision.decision == "unmatched"
+    )
+    dossiers = discover_clusters(
+        unmatched,
+        threshold=command.threshold,
+        min_cluster_size=command.min_cluster_size,
+    )
+    output_path = command.output_directory / f"{command.run_id}.dossiers.json"
+    write_dossiers(
+        dossiers,
+        total_unmatched=len(unmatched),
+        output_path=output_path,
+        threshold=command.threshold,
+        min_cluster_size=command.min_cluster_size,
+    )
+    _ = sys.stdout.write(f"{output_path}\n")
+    return 0
+
+
+def _run_diff(arguments: tuple[str, ...]) -> int:
+    """Compare two decision runs and report the reflow between them."""
+    try:
+        options = _parse_options(arguments, DIFF_OPTIONS, ("--before", "--after"))
+    except CliUsageError as error:
+        _write_error("usage", str(error))
+        return 2
+    try:
+        before = load_decisions(Path(options["--before"]))
+        after = load_decisions(Path(options["--after"]))
+    except OSError as error:
+        _write_error("not_found", str(error))
+        return 2
+    except json.JSONDecodeError as error:
+        _write_error("malformed_decisions", str(error))
+        return 2
+    except ValueError as error:
+        _write_error("malformed_decisions", str(error))
+        return 2
+
+    payload = serialize_diff(diff_decisions(before, after))
+    _ = sys.stdout.write(payload + "\n")
+    return 0
+
+
+def _parse_options(
+    arguments: tuple[str, ...],
+    allowed: frozenset[str],
+    required: tuple[str, ...],
+) -> dict[str, str]:
+    if len(arguments) % 2 != 0:
+        raise CliUsageError(detail="Options require a value.")
+    options = dict(zip(arguments[::2], arguments[1::2], strict=True))
+    if len(options) != len(arguments) // 2:
+        raise CliUsageError(detail="Options must not be repeated.")
+    if not all(option in allowed for option in options):
+        raise CliUsageError(detail="Options include an unsupported name.")
+    if any(option not in options for option in required):
+        missing = ", ".join(option for option in required if option not in options)
+        raise CliUsageError(detail=f"Missing required options: {missing}.")
+    return options
+
+
+def _parse_classify_command(
+    arguments: tuple[str, ...],
+) -> tuple[ClassifyCommand | None, str | None]:
+    try:
+        options = _parse_options(
+            arguments, CLASSIFY_OPTIONS, ("--corpus", "--registry", "--run-id")
+        )
+    except CliUsageError as error:
+        return None, str(error.detail)
+    run_id = options["--run-id"]
+    if RUN_ID_PATTERN.fullmatch(run_id) is None:
+        return None, "Run ID must contain only letters, digits, '_' or '-'"
+    return (
+        ClassifyCommand(
+            corpus_directory=Path(options["--corpus"]),
+            registry_path=Path(options["--registry"]),
+            output_directory=Path(
+                options.get("--output-dir", DEFAULT_OUTPUT_DIRECTORY)
+            ),
+            run_id=run_id,
+            source_commit=options.get("--source-commit", DEFAULT_SOURCE_COMMIT),
+        ),
+        None,
+    )
+
+
+def _parse_discover_command(
+    arguments: tuple[str, ...],
+) -> tuple[DiscoverCommand | None, str | None]:
+    try:
+        options = _parse_options(
+            arguments, DISCOVER_OPTIONS, ("--corpus", "--registry", "--run-id")
+        )
+    except CliUsageError as error:
+        return None, str(error.detail)
+    run_id = options["--run-id"]
+    if RUN_ID_PATTERN.fullmatch(run_id) is None:
+        return None, "Run ID must contain only letters, digits, '_' or '-'"
+    threshold_raw = options.get("--threshold", str(DEFAULT_DISCOVERY_THRESHOLD))
+    min_size_raw = options.get("--min-size", str(DEFAULT_MIN_CLUSTER_SIZE))
+    try:
+        threshold = float(threshold_raw)
+        min_cluster_size = int(min_size_raw)
+    except ValueError:
+        return None, "Discovery options must be numbers."
+    if threshold <= 0.0:
+        return None, "Discovery threshold must be positive."
+    if min_cluster_size < 1:
+        return None, "Minimum cluster size must be at least 1."
+    return (
+        DiscoverCommand(
+            corpus_directory=Path(options["--corpus"]),
+            registry_path=Path(options["--registry"]),
+            output_directory=Path(
+                options.get("--output-dir", DEFAULT_OUTPUT_DIRECTORY)
+            ),
+            run_id=run_id,
+            source_commit=options.get("--source-commit", DEFAULT_SOURCE_COMMIT),
+            threshold=threshold,
+            min_cluster_size=min_cluster_size,
+        ),
+        None,
+    )
+
+
 def _write_model_policy_error(error: ModelPolicyError) -> None:
     payload = ModelPolicyErrorJson(
         error="model_policy", model_identifier=error.model_id
     )
     _ = sys.stderr.write(json.dumps(payload, sort_keys=True) + "\n")
+
+
+COMMAND_HANDLERS: Final = {
+    "classify": _run_classify,
+    "discover": _run_discover,
+    "diff": _run_diff,
+    "features": _run_features,
+}
