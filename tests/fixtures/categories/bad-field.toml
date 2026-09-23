@@ -1,0 +1,13 @@
+schema_version = 1
+
+[[category]]
+id = "login-update-lure"
+description = "Account update lures"
+action = "quarantine"
+priority = 20
+acceptance = []
+
+[[category.rules]]
+field = "raw_headers"
+op = "regex"
+value = "update"

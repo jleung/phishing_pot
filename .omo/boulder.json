@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "active_work_id": "phishing-email-exclusive-clustering",
+  "works": {
+    "phishing-email-exclusive-clustering": {
+      "work_id": "phishing-email-exclusive-clustering",
+      "active_plan": ".omo/plans/phishing-email-exclusive-clustering.md",
+      "plan_name": "phishing-email-exclusive-clustering",
+      "session_ids": ["opencode:ses_f3087dee4ffeDKLfDhCL0igcnI"],
+      "status": "active",
+      "worktree_path": null,
+      "started_at": "2026-09-23T18:50:02.426Z"
+    }
+  }
+}

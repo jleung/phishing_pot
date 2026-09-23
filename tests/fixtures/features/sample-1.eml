@@ -1,0 +1,7 @@
+From: Sender <sender@example.test>
+To: recipient@example.test
+Reply-To: Reply <reply@example.test>
+Subject: =?utf-8?b?VXBkYXRl?=
+Content-Type: text/plain; charset=utf-8
+
+Visit https://portal.example.test/login?secret=token for account update.

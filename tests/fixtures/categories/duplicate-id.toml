@@ -1,0 +1,25 @@
+schema_version = 1
+
+[[category]]
+id = "login-update-lure"
+description = "Account update lures"
+action = "quarantine"
+priority = 20
+acceptance = []
+
+[[category.rules]]
+field = "body_evidence"
+op = "regex"
+value = "update"
+
+[[category]]
+id = "login-update-lure"
+description = "Duplicate definition"
+action = "quarantine"
+priority = 10
+acceptance = []
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "update"

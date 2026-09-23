@@ -1,0 +1,16 @@
+From: Sender <sender@example.test>
+Subject: Attachment
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="safe"
+
+--safe
+Content-Type: text/html; charset=utf-8
+
+<p>Open <a href="https://files.example.test/document">document</a></p>
+--safe
+Content-Type: application/pdf; name="invoice.pdf"
+Content-Disposition: attachment; filename="invoice.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQK
+--safe--

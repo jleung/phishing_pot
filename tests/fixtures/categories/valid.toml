@@ -1,0 +1,25 @@
+schema_version = 1
+
+[[category]]
+id = "login-update-lure"
+description = "Account update lures with a credential-harvest link"
+action = "quarantine"
+priority = 20
+acceptance = [1]
+
+[[category.rules]]
+field = "body_evidence"
+op = "regex"
+value = "(?i)account update"
+
+[[category]]
+id = "pdf-delivery"
+description = "Documents delivered as file attachments"
+action = "quarantine"
+priority = 10
+acceptance = [2]
+
+[[category.rules]]
+field = "attachments"
+op = "extension_in"
+value = ["pdf"]
