@@ -90,7 +90,9 @@ def test_forwarding_prefixes_do_not_hide_prize_subjects() -> None:
     stylized = classify_record(
         _feature(
             sample_id=3130,
-            subject="#𝘿𝙄𝙔: 𝙃𝙊𝙒 𝙏𝙊 𝙏𝘼𝙆𝙀 𝙔𝙀𝘼𝙍𝙎 𝙊𝙁𝙁 𝙔𝙊𝙐𝙍 𝙉𝙀𝘾𝙆'𝙎 𝘼𝙋𝙋𝙀𝘼𝙍𝘼𝙉𝘾𝙀",
+            # Deliberate: the subject is a stylized unicode lure sample; its
+            # non-latin characters are the signal under test.
+            subject="#𝘿𝙄𝙔: 𝙃𝙊𝙒 𝙏𝙊 𝙏𝘼𝙆𝙀 𝙔𝙀𝘼𝙍𝙎 𝙊𝙁𝙁 𝙔𝙊𝙐𝙍 𝙉𝙀𝘾𝙆'𝙎 𝘼𝙋𝙋𝙀𝘼𝙍𝘼𝙉𝘾𝙀",  # noqa: RUF001
         ),
         registry,
     )
