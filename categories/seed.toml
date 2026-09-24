@@ -1,0 +1,49 @@
+schema_version = 1
+
+[[category]]
+id = "account-signin-alert"
+description = "Account security / unusual sign-in alerts harvesting credentials"
+action = "quarantine"
+priority = 20
+acceptance = [10, 1001]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)unusual signin"
+
+[[category]]
+id = "crypto-wallet-verification"
+description = "Wallet / asset access verification lures targeting crypto holders"
+action = "quarantine"
+priority = 20
+acceptance = [1014]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)unauthorized (access|transaction)"
+
+[[category]]
+id = "points-expiry"
+description = "Loyalty / bank points expiry lures (Livelo and similar)"
+action = "quarantine"
+priority = 20
+acceptance = [1, 1050]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)pontos.{0,80}expir"
+
+[[category]]
+id = "investment-lure"
+description = "Investment proposition lures, often RE: reply chains"
+action = "flag"
+priority = 10
+acceptance = [406]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)investment proposition"

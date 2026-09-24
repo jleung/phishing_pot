@@ -52,6 +52,15 @@ def test_oddly_formatted_from_header_still_yields_clean_name() -> None:
     assert feature.message_id_domain == "access-accsecurity.com"
 
 
+def test_malformed_ipv6_urls_do_not_break_extraction() -> None:
+    # Given: a fixture whose body contains an unparseable IPv6-style URL.
+    feature = _extract(8, "sample-8.eml")
+
+    # Then: extraction survives and hashes only the parseable host.
+    assert feature.url_count == 2
+    assert len(feature.url_host_hashes) == 1
+
+
 def test_missing_header_values_fall_back_to_safe_defaults() -> None:
     # Given: a plain fixture with no display name or auth results.
     feature = _extract(6, "sample-6.eml")

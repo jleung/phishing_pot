@@ -1,0 +1,209 @@
+schema_version = 1
+
+# --- Seed categories (pilot) -------------------------------------------------
+
+[[category]]
+id = "account-signin-alert"
+description = "Account security / unusual sign-in alerts harvesting credentials"
+action = "quarantine"
+priority = 20
+acceptance = [10, 1001]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)unusual signin"
+
+[[category]]
+id = "crypto-wallet-verification"
+description = "Wallet / asset access verification lures targeting crypto holders"
+action = "quarantine"
+priority = 20
+acceptance = [1014]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)unauthorized (access|transaction)"
+
+[[category]]
+id = "points-expiry"
+description = "Loyalty / bank points expiry lures (Livelo and similar)"
+action = "quarantine"
+priority = 20
+acceptance = [1, 1050]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)pontos.{0,80}expir"
+
+[[category]]
+id = "investment-lure"
+description = "Investment proposition lures, often RE: reply chains"
+action = "flag"
+priority = 10
+acceptance = [406]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)investment proposition"
+
+# --- v2: from pilot dossiers --------------------------------------------------
+
+[[category]]
+id = "customs-package-hold"
+description = "Correios/customs lures claiming a package is held at the border"
+action = "quarantine"
+priority = 20
+acceptance = [3612]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)pedido foi bloqueado pela fiscaliza"
+
+[[category]]
+id = "cpf-tax-notice"
+description = "Fake Receita Federal notices about CPF regularisation fees"
+action = "quarantine"
+priority = 20
+acceptance = [4923]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)\\bcpf\\b"
+
+[[category]]
+id = "cnh-suspension"
+description = "Fake DETRAN notices threatening driving-license suspension"
+action = "quarantine"
+priority = 20
+acceptance = [4368]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)\\bcnh\\b"
+
+[[category]]
+id = "ledger-lure"
+description = "Ledger hardware-wallet lures (data breach, reminders, updates)"
+action = "quarantine"
+priority = 20
+acceptance = [4359]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)ledger"
+
+[[category]]
+id = "casino-bonus"
+description = "German casino bonus / freespins no-deposit spam"
+action = "flag"
+priority = 20
+acceptance = [4862]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)(casino bonus|freispielen|einzahlung)"
+
+[[category]]
+id = "login-alert-obfuscated"
+description = "Login attempt alerts with character-substitution obfuscation"
+action = "quarantine"
+priority = 20
+acceptance = [26]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)tried to [1li]og in"
+
+[[category]]
+id = "prize-won"
+description = "Prize / giveaway spam ('You have won an ...', German 'Gewinnen')"
+action = "flag"
+priority = 20
+acceptance = [209, 1601]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)^(you have won|gewinnen)"
+
+[[category]]
+id = "bank-block-alert"
+description = "Bank account blocked / suspended alerts demanding action"
+action = "quarantine"
+priority = 20
+acceptance = [5]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)(account has been blocked|conta (foi|esteve) bloqueada)"
+
+[[category]]
+id = "payment-confirmation"
+description = "Fake payment report / successful payment confirmations"
+action = "quarantine"
+priority = 20
+acceptance = [77]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)^payment (report|successful)\\b"
+
+[[category]]
+id = "wallet-update"
+description = "Trust Wallet / MetaMask update and access lures"
+action = "quarantine"
+priority = 20
+acceptance = [15]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)(trust wallet|metamask)"
+
+[[category]]
+id = "fbi-letter"
+description = "Fake FBI letters impersonating law enforcement"
+action = "quarantine"
+priority = 20
+acceptance = [119]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)federal bureau of investigation"
+
+[[category]]
+id = "temu-survey"
+description = "Temu shopping-experience survey reward spam"
+action = "flag"
+priority = 20
+acceptance = [2417]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)rate your shopping experience"
+
+[[category]]
+id = "advance-fee-legacy"
+description = "Classic advance-fee / 'valued beneficiary' correspondence lures"
+action = "flag"
+priority = 20
+acceptance = [136]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(?i)^dear valued beneficiary"

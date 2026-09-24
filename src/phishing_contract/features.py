@@ -239,7 +239,10 @@ def _domains_agree(first: str, second: str) -> bool:
 
 
 def _host_hash(url: str) -> str:
-    host = urlsplit(url).hostname
+    try:
+        host = urlsplit(url).hostname
+    except ValueError:
+        return ""
     return "" if host is None else hashlib.sha256(host.lower().encode()).hexdigest()
 
 

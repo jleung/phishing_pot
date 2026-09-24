@@ -1,0 +1,9 @@
+From: sender@example.test
+To: victim@example.test
+Subject: Link with malformed host
+Message-ID: <malformed-url@example.test>
+Date: Wed, 26 Jul 2023 12:26:43 +0000
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Please review http://[::1 and https://ok.example/page?x=1 now.
