@@ -1,0 +1,23 @@
+schema_version = 1
+
+[[category]]
+id = "spoofed-brand-alert"
+description = "Brand-impersonating alerts that fail authentication"
+action = "quarantine"
+priority = 30
+acceptance = []
+
+[[category.rules]]
+field = "from_display_name"
+op = "regex"
+value = "(?i)microsoft"
+
+[[category.rules]]
+field = "dkim_result"
+op = "in"
+value = ["fail", "temperror"]
+
+[[category.rules]]
+field = "header_encoding_anomaly"
+op = "eq"
+value = true

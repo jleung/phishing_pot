@@ -1,0 +1,10 @@
+From: "Microsoft account team" <no-reply@access-accsecurity.com>
+To: victim@example.test
+Subject: =?UTF-8?Q?Account_update_required_=E2=80=93_verify_now?=
+Message-ID: <9f8e7d6c.mailer@mailer.example>
+Date: Wed, 26 Jul 2023 12:26:43 +0000
+Authentication-Results: mx.example; spf=pass smtp.mailfrom=access-accsecurity.com; dkim=fail header.d=access-accsecurity.com; dmarc=none header.from=access-accsecurity.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your account has unusual activity. Please verify your sign-in details.

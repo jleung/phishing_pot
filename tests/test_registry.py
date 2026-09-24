@@ -12,6 +12,17 @@ from phishing_contract.registry import (
 FIXTURES = Path(__file__).parent / "fixtures" / "categories"
 
 
+def test_registry_accepts_header_derived_fields() -> None:
+    # Given: a registry that rules over the new header-derived fields.
+    registry = load_registry(FIXTURES / "header-fields.toml")
+
+    # Then: every field validates against the supported field sets.
+    category, = registry.categories
+    assert category.id == "spoofed-brand-alert"
+    fields = {rule.field for rule in category.rules}
+    assert fields == {"from_display_name", "dkim_result", "header_encoding_anomaly"}
+
+
 def test_load_registry_parses_categories_rules_and_metadata() -> None:
     # Given: a valid TOML registry with two categories and mixed rule ops.
     registry = load_registry(FIXTURES / "valid.toml")

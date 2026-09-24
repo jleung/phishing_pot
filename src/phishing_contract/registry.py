@@ -17,15 +17,23 @@ TEXT_FIELDS: Final = frozenset(
         "reply_to_domain",
         "envelope_domain",
         "mime_form",
+        "from_display_name",
+        "message_id_domain",
+        "spf_result",
+        "dkim_result",
+        "dmarc_result",
     }
 )
 BOOL_FIELDS: Final = frozenset(
-    {"unicode_obfuscation", "sender_reply_agree", "sender_envelope_agree"}
+    {
+        "unicode_obfuscation",
+        "sender_reply_agree",
+        "sender_envelope_agree",
+        "header_encoding_anomaly",
+    }
 )
 INT_FIELDS: Final = frozenset({"url_count"})
-LIST_FIELDS: Final = frozenset(
-    {"authentication", "quality_flags", "languages", "charsets"}
-)
+LIST_FIELDS: Final = frozenset({"quality_flags", "languages", "charsets"})
 ATTACHMENT_FIELDS: Final = frozenset({"attachments"})
 TEXT_OPS: Final = frozenset({"regex", "eq", "in"})
 SCALAR_OPS: Final = frozenset({"eq"})

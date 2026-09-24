@@ -71,7 +71,12 @@ class FeatureJson(TypedDict):
     languages: list[str]
     charsets: list[str]
     unicode_obfuscation: bool
-    authentication: list[str]
+    from_display_name: str
+    message_id_domain: str
+    spf_result: str
+    dkim_result: str
+    dmarc_result: str
+    header_encoding_anomaly: bool
     quality_flags: list[str]
     provenance: ProvenanceJson
 
@@ -195,7 +200,12 @@ class FeatureRecord:
     languages: tuple[str, ...]
     charsets: tuple[str, ...]
     unicode_obfuscation: bool
-    authentication: tuple[str, ...]
+    from_display_name: str
+    message_id_domain: str
+    spf_result: str
+    dkim_result: str
+    dmarc_result: str
+    header_encoding_anomaly: bool
     quality_flags: tuple[str, ...]
     provenance: Provenance
 
@@ -218,7 +228,12 @@ class FeatureRecord:
             languages=list(self.languages),
             charsets=list(self.charsets),
             unicode_obfuscation=self.unicode_obfuscation,
-            authentication=list(self.authentication),
+            from_display_name=self.from_display_name,
+            message_id_domain=self.message_id_domain,
+            spf_result=self.spf_result,
+            dkim_result=self.dkim_result,
+            dmarc_result=self.dmarc_result,
+            header_encoding_anomaly=self.header_encoding_anomaly,
             quality_flags=list(self.quality_flags),
             provenance=self.provenance.as_json(),
         )

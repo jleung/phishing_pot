@@ -1,0 +1,9 @@
+From: sender@example.test
+To: victim@example.test
+Subject: Hello
+Message-ID: <plain-message@example.test>
+Date: Wed, 26 Jul 2023 12:26:43 +0000
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+A plain text message with no authentication results headers.

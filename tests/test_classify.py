@@ -31,7 +31,12 @@ def _feature(
     unicode_obfuscation: bool = False,
     quality_flags: tuple[str, ...] = (),
     languages: tuple[str, ...] = ("ascii",),
-    authentication: tuple[str, ...] = (),
+    from_display_name: str = "",
+    message_id_domain: str = "",
+    spf_result: str = "none",
+    dkim_result: str = "none",
+    dmarc_result: str = "none",
+    header_encoding_anomaly: bool = False,
 ) -> FeatureRecord:
     source = SourceRecord(SampleId(sample_id), f"sample-{sample_id}.eml", 0, "fixture")
     return FeatureRecord(
@@ -58,10 +63,39 @@ def _feature(
         languages=languages,
         charsets=("utf-8",),
         unicode_obfuscation=unicode_obfuscation,
-        authentication=authentication,
+        from_display_name=from_display_name,
+        message_id_domain=message_id_domain,
+        spf_result=spf_result,
+        dkim_result=dkim_result,
+        dmarc_result=dmarc_result,
+        header_encoding_anomaly=header_encoding_anomaly,
         quality_flags=quality_flags,
         provenance=Provenance("test-commit", "digest", "model"),
     )
+
+
+def test_header_derived_fields_are_matchable_from_a_registry() -> None:
+    # Given: a registry that rules over header-derived fields.
+    registry = load_registry(
+        Path(__file__).parent / "fixtures" / "categories" / "header-fields.toml"
+    )
+    record = _feature(
+        sample_id=50,
+        from_display_name="Microsoft account team",
+        dkim_result="fail",
+        header_encoding_anomaly=True,
+    )
+
+    # When: the record is classified against the registry.
+    decision = classify_record(record, registry)
+
+    # Then: the header-derived fields drive the match.
+    assert decision.decision == "spoofed-brand-alert"
+    assert {rule.field for rule in decision.matched_rules} == {
+        "from_display_name",
+        "dkim_result",
+        "header_encoding_anomaly",
+    }
 
 
 def _registry(*categories: Category) -> CategoryRegistry:

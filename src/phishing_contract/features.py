@@ -12,7 +12,7 @@ from email.header import decode_header
 from email.message import EmailMessage
 from email.parser import BytesParser
 from pathlib import Path
-from typing import cast
+from typing import Final, cast
 from urllib.parse import urlsplit
 
 from phishing_contract.models import (
@@ -25,6 +25,10 @@ from phishing_contract.models import (
 
 URL_PATTERN = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
 EMAIL_PATTERN = re.compile(r"[\w.+-]+@[\w.-]+")
+ENCODED_WORD_PATTERN = re.compile(r"=\?[A-Za-z0-9_-]+\?[QqBb]\?")
+AUTH_MECHANISMS: Final = ("spf", "dkim", "dmarc")
+STANDARD_CHARSETS: Final = frozenset({"utf-8", "us-ascii"})
+MIN_QUOTED_NAME_LENGTH: Final = 2
 
 
 def extract_feature_record(
@@ -43,6 +47,7 @@ def extract_feature_record(
     urls: tuple[str, ...] = tuple(URL_PATTERN.findall(body_text))
     safe_body = _safe_text(body_text)
     quality_flags = _quality_flags(message, safe_body, flags)
+    auth = _auth_results(message)
     return FeatureRecord(
         source=source,
         subject=_safe_text(_decoded_header(message, "Subject")),
@@ -61,7 +66,12 @@ def extract_feature_record(
         languages=_language_indicators(safe_body),
         charsets=tuple(sorted(charsets)),
         unicode_obfuscation=_has_unicode_obfuscation(safe_body),
-        authentication=_authentication_indicators(message),
+        from_display_name=_display_name(_decoded_header(message, "From")),
+        message_id_domain=_message_id_domain(message),
+        spf_result=auth["spf"],
+        dkim_result=auth["dkim"],
+        dmarc_result=auth["dmarc"],
+        header_encoding_anomaly=_header_encoding_anomaly(message, charsets),
         quality_flags=quality_flags,
         provenance=Provenance(
             source_commit="unavailable",
@@ -150,6 +160,54 @@ def _validate_base64(payload: str | bytes | None, flags: set[str]) -> None:
             flags.add("malformed")
 
 
+def _display_name(from_header: str) -> str:
+    """Return the normalized display-name portion of a decoded From header."""
+    name = from_header
+    if "<" not in name:
+        return ""
+    name = name.split("<", 1)[0]
+    name = name.strip().rstrip(" ,_")
+    if (
+        len(name) >= MIN_QUOTED_NAME_LENGTH
+        and name.startswith('"')
+        and name.endswith('"')
+    ):
+        name = name[1:-1]
+    return " ".join(name.split())
+
+
+def _message_id_domain(message: EmailMessage) -> str:
+    """Return the lowercased domain of the Message-ID, or '' if absent."""
+    raw = message.get("Message-ID", "")
+    if not isinstance(raw, str):
+        return ""
+    value = raw.strip().strip("<>")
+    if "@" not in value:
+        return ""
+    return value.rsplit("@", 1)[1].lower()
+
+
+def _auth_results(message: EmailMessage) -> dict[str, str]:
+    """Return per-mechanism Authentication-Results tokens, 'none' if absent."""
+    values = " ".join(message.get_all("Authentication-Results", []))
+    results: dict[str, str] = {}
+    for mechanism in AUTH_MECHANISMS:
+        match = re.search(rf"\b{mechanism}=([A-Za-z0-9_-]+)", values)
+        results[mechanism] = match.group(1).lower() if match else "none"
+    return results
+
+
+def _header_encoding_anomaly(message: EmailMessage, charsets: set[str]) -> bool:
+    """Flag RFC-2047 encoded-word subjects or non-standard charsets."""
+    for item in message.raw_items():
+        name, raw_value = cast("tuple[str, object]", item)
+        if name.lower() != "subject":
+            continue
+        if isinstance(raw_value, str) and ENCODED_WORD_PATTERN.search(raw_value):
+            return True
+    return any(charset not in STANDARD_CHARSETS for charset in charsets)
+
+
 def _decoded_header(message: EmailMessage, header_name: str) -> str:
     raw_value = message.get(header_name, "")
     if not isinstance(raw_value, str):
@@ -196,12 +254,6 @@ def _has_unicode_obfuscation(text: str) -> bool:
     return any(unicodedata.category(char).startswith("M") for char in text)
 
 
-def _authentication_indicators(message: EmailMessage) -> tuple[str, ...]:
-    values = " ".join(message.get_all("Authentication-Results", []))
-    indicators = {item for item in ("spf", "dkim", "dmarc") if item in values.lower()}
-    return tuple(sorted(indicators))
-
-
 def _quality_flags(
     message: EmailMessage, text: str, flags: set[str]
 ) -> tuple[str, ...]:
@@ -229,7 +281,12 @@ def _empty_feature(source: SourceRecord) -> FeatureRecord:
         languages=(),
         charsets=(),
         unicode_obfuscation=False,
-        authentication=(),
+        from_display_name="",
+        message_id_domain="",
+        spf_result="none",
+        dkim_result="none",
+        dmarc_result="none",
+        header_encoding_anomaly=False,
         quality_flags=("empty",),
         provenance=Provenance("unavailable", source.sha256, "openai/gpt-5.6-terra"),
     )

@@ -39,7 +39,12 @@ def _feature(
         languages=languages,
         charsets=("utf-8",),
         unicode_obfuscation=False,
-        authentication=(),
+        from_display_name="",
+        message_id_domain="",
+        spf_result="none",
+        dkim_result="none",
+        dmarc_result="none",
+        header_encoding_anomaly=False,
         quality_flags=(),
         provenance=Provenance("test-commit", "digest", "model"),
     )
