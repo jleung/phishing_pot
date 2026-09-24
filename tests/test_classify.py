@@ -74,6 +74,33 @@ def _feature(
     )
 
 
+def test_forwarding_prefixes_do_not_hide_prize_subjects() -> None:
+    # Given: the live taxonomy and a prize subject with an RE:/address prefix,
+    # plus a purely stylized-unicode subject with no intent wording.
+    registry = load_registry(
+        Path(__file__).parent.parent / "categories" / "taxonomy-v3.toml"
+    )
+    forwarded = classify_record(
+        _feature(
+            sample_id=3273,
+            subject="RE:phishing@pot, You have won an Makita 6-pc Combo Kit",
+        ),
+        registry,
+    )
+    stylized = classify_record(
+        _feature(
+            sample_id=3130,
+            subject="#𝘿𝙄𝙔: 𝙃𝙊𝙒 𝙏𝙊 𝙏𝘼𝙆𝙀 𝙔𝙀𝘼𝙍𝙎 𝙊𝙁𝙁 𝙔𝙊𝙐𝙍 𝙉𝙀𝘾𝙆'𝙎 𝘼𝙋𝙋𝙀𝘼𝙍𝘼𝙉𝘾𝙀",
+        ),
+        registry,
+    )
+
+    # Then: the intent category wins over the technique category, and the
+    # technique category still owns subjects with no intent wording.
+    assert forwarded.decision == "prize-won"
+    assert stylized.decision == "stylized-unicode-subject"
+
+
 def test_header_derived_fields_are_matchable_from_a_registry() -> None:
     # Given: a registry that rules over header-derived fields.
     registry = load_registry(

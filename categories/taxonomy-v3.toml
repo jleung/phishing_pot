@@ -134,7 +134,7 @@ acceptance = [209, 1601]
 [[category.rules]]
 field = "subject"
 op = "regex"
-value = "(?i)^(you have won|gewinnen)"
+value = "(?i)(you have won|gewinnen)"
 
 [[category]]
 id = "bank-block-alert"
@@ -158,7 +158,7 @@ acceptance = [77]
 [[category.rules]]
 field = "subject"
 op = "regex"
-value = "(?i)^payment (report|successful)\\b"
+value = "(?i)\\bpayment (report|successful)\\b"
 
 [[category]]
 id = "wallet-update"
@@ -206,7 +206,7 @@ acceptance = [136]
 [[category.rules]]
 field = "subject"
 op = "regex"
-value = "(?i)^dear valued beneficiary"
+value = "(?i)dear valued beneficiary"
 
 # --- v3: from v2 dossiers ----------------------------------------------------
 
@@ -334,7 +334,7 @@ value = "(?i)(discount code|saving pass)"
 id = "stylized-unicode-subject"
 description = "Lures whose subject is stylized with math-alphanumeric unicode"
 action = "flag"
-priority = 20
+priority = 10
 acceptance = [2978]
 
 [[category.rules]]
