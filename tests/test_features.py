@@ -21,6 +21,7 @@ def test_feature_record_redacts_urls_and_recipients_and_keeps_host_metadata() ->
     # Then: text evidence is redacted while host metadata remains available.
     assert feature.url_count == 1
     assert feature.url_host_hashes
+    assert feature.url_host_matches_from is True
     assert "recipient@example.test" not in feature.body_evidence
     assert "secret=token" not in feature.body_evidence
     assert "[url]" in feature.body_evidence

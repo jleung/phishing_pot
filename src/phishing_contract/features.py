@@ -71,6 +71,7 @@ def extract_feature_record(
     reply_to_domain = _address_domain(_decoded_header(message, "Reply-To"))
     envelope_domain = _address_domain(_decoded_header(message, "Return-Path"))
     urls: tuple[str, ...] = tuple(URL_PATTERN.findall(body_text)) + href_urls
+    url_hosts = tuple(host for host in (_url_host(url) for url in urls) if host)
     safe_body = _safe_text(body_text)
     quality_flags = _quality_flags(message, safe_body, flags)
     auth = _auth_results(message)
@@ -86,9 +87,8 @@ def extract_feature_record(
         mime_form=message.get_content_type(),
         attachments=attachments,
         url_count=len(urls),
-        url_host_hashes=tuple(
-            sorted({_host_hash(url) for url in urls if _host_hash(url)})
-        ),
+        url_host_hashes=tuple(sorted({_host_hash(host) for host in url_hosts})),
+        url_host_matches_from=_url_host_matches_from(url_hosts, from_domain),
         languages=_language_indicators(safe_body),
         charsets=tuple(sorted(charsets)),
         unicode_obfuscation=_has_unicode_obfuscation(safe_body),
@@ -312,12 +312,26 @@ def _domains_agree(first: str, second: str) -> bool:
     return bool(first) and first == second
 
 
-def _host_hash(url: str) -> str:
+def _url_host(url: str) -> str:
     try:
         host = urlsplit(url).hostname
     except ValueError:
         return ""
-    return "" if host is None else hashlib.sha256(host.lower().encode()).hexdigest()
+    return "" if host is None else host.lower().rstrip(".")
+
+
+def _host_hash(host: str) -> str:
+    return hashlib.sha256(host.encode()).hexdigest()
+
+
+def _url_host_matches_from(url_hosts: tuple[str, ...], from_domain: str) -> bool:
+    normalized_from = from_domain.lower().rstrip(".")
+    if not normalized_from:
+        return False
+    return any(
+        host == normalized_from or host.endswith(f".{normalized_from}")
+        for host in url_hosts
+    )
 
 
 def _language_indicators(text: str) -> tuple[str, ...]:
@@ -355,6 +369,7 @@ def _empty_feature(source: SourceRecord) -> FeatureRecord:
         attachments=(),
         url_count=0,
         url_host_hashes=(),
+        url_host_matches_from=False,
         languages=(),
         charsets=(),
         unicode_obfuscation=False,

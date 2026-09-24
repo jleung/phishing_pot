@@ -68,6 +68,7 @@ class FeatureJson(TypedDict):
     attachments: list[AttachmentJson]
     url_count: int
     url_host_hashes: list[str]
+    url_host_matches_from: bool
     languages: list[str]
     charsets: list[str]
     unicode_obfuscation: bool
@@ -197,6 +198,7 @@ class FeatureRecord:
     attachments: tuple[AttachmentMetadata, ...]
     url_count: int
     url_host_hashes: tuple[str, ...]
+    url_host_matches_from: bool
     languages: tuple[str, ...]
     charsets: tuple[str, ...]
     unicode_obfuscation: bool
@@ -225,6 +227,7 @@ class FeatureRecord:
             attachments=[attachment.as_json() for attachment in self.attachments],
             url_count=self.url_count,
             url_host_hashes=list(self.url_host_hashes),
+            url_host_matches_from=self.url_host_matches_from,
             languages=list(self.languages),
             charsets=list(self.charsets),
             unicode_obfuscation=self.unicode_obfuscation,

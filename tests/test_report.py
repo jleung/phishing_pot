@@ -11,13 +11,18 @@ from phishing_contract.report import (
 )
 
 
-def _decision(sample_id: int, decision: str) -> Decision:
+def _decision(
+    sample_id: int, decision: str, bucket: str | None = None
+) -> Decision:
     return Decision(
         sample_id=sample_id,
         relative_path=f"sample-{sample_id}.eml",
         decision=decision,
+        bucket=decision if bucket is None else bucket,
         action=None,
         matched_rules=(),
+        matched_signals=(),
+        signal_score=0,
         rejected_candidates=(),
         fallback_reason=None,
         registry_sha256="registry-digest",
@@ -90,10 +95,10 @@ def test_summary_counts_every_bucket_sorted() -> None:
     # Given: decisions spread across several buckets.
     decisions = (
         _decision(1, "unmatched"),
-        _decision(2, "login-lure"),
+        _decision(2, "login-lure", "account-security"),
         _decision(3, "unmatched"),
         _decision(4, "needs_review"),
-        _decision(5, "login-lure"),
+        _decision(5, "password-reset", "account-security"),
     )
 
     # When: the decisions are summarized.
@@ -102,7 +107,13 @@ def test_summary_counts_every_bucket_sorted() -> None:
     # Then: totals and per-bucket counts are reported deterministically.
     assert summary.total == 5
     assert summary.counts == (
-        ("login-lure", 2),
+        ("login-lure", 1),
+        ("needs_review", 1),
+        ("password-reset", 1),
+        ("unmatched", 2),
+    )
+    assert summary.bucket_counts == (
+        ("account-security", 2),
         ("needs_review", 1),
         ("unmatched", 2),
     )
@@ -112,10 +123,13 @@ def test_acceptance_passes_when_samples_match_their_category() -> None:
     # Given: a category claiming sample 1, and sample 1 decided accordingly.
     category = Category(
         id="login-lure",
+        bucket="login-lure",
         description="d",
         action="quarantine",
         priority=10,
         rules=(Rule(field="body_evidence", op="regex", value="(?i)update"),),
+        signals=(),
+        min_signals=0,
         acceptance=(1,),
     )
     registry = CategoryRegistry(
@@ -132,10 +146,13 @@ def test_acceptance_fails_when_sample_lands_elsewhere() -> None:
     # Given: a category claiming sample 1, but sample 1 is unmatched.
     category = Category(
         id="login-lure",
+        bucket="login-lure",
         description="d",
         action="quarantine",
         priority=10,
         rules=(Rule(field="body_evidence", op="regex", value="(?i)update"),),
+        signals=(),
+        min_signals=0,
         acceptance=(1,),
     )
     registry = CategoryRegistry(
@@ -158,10 +175,13 @@ def test_acceptance_fails_when_sample_is_absent_from_decisions() -> None:
     # Given: a category claiming sample 9, absent from the decisions.
     category = Category(
         id="login-lure",
+        bucket="login-lure",
         description="d",
         action="quarantine",
         priority=10,
         rules=(Rule(field="body_evidence", op="regex", value="(?i)update"),),
+        signals=(),
+        min_signals=0,
         acceptance=(9,),
     )
     registry = CategoryRegistry(

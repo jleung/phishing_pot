@@ -48,19 +48,23 @@ class DiffReport:
 
 @dataclass(frozen=True, slots=True)
 class Summary:
-    """Per-bucket decision counts for one run."""
+    """Per-category and per-bucket decision counts for one run."""
 
     total: int
     counts: tuple[tuple[str, int], ...]
+    bucket_counts: tuple[tuple[str, int], ...]
 
 
 def summarize_decisions(decisions: tuple[Decision, ...]) -> Summary:
-    """Count decisions per bucket in deterministic sorted order."""
+    """Count categories and buckets in deterministic sorted order."""
     tally: dict[str, int] = {}
+    bucket_tally: dict[str, int] = {}
     for decision in decisions:
         tally[decision.decision] = tally.get(decision.decision, 0) + 1
+        bucket_tally[decision.bucket] = bucket_tally.get(decision.bucket, 0) + 1
     counts = tuple(sorted(tally.items()))
-    return Summary(total=len(decisions), counts=counts)
+    bucket_counts = tuple(sorted(bucket_tally.items()))
+    return Summary(total=len(decisions), counts=counts, bucket_counts=bucket_counts)
 
 
 def diff_decisions(
@@ -123,6 +127,7 @@ def serialize_summary(summary: Summary) -> str:
     payload = {
         "total": summary.total,
         "counts": dict(summary.counts),
+        "bucket_counts": dict(summary.bucket_counts),
     }
     return json.dumps(payload, sort_keys=True) + "\n"
 

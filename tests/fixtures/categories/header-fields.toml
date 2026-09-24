@@ -2,6 +2,7 @@ schema_version = 1
 
 [[category]]
 id = "spoofed-brand-alert"
+bucket = "spoofed-brand-alert"
 description = "Brand-impersonating alerts that fail authentication"
 action = "quarantine"
 priority = 30

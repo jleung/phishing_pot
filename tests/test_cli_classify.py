@@ -56,6 +56,10 @@ def test_classify_cli_writes_decisions_and_summary(
     assert counts["login-update-lure"] == 1
     assert counts["pdf-delivery"] == 1
     assert counts["unmatched"] == 2
+    bucket_counts = cast("dict[str, int]", summary["bucket_counts"])
+    assert bucket_counts["login-update-lure"] == 1
+    assert bucket_counts["pdf-delivery"] == 1
+    assert bucket_counts["unmatched"] == 2
 
 
 def test_classify_cli_rejects_acceptance_failure(
@@ -138,8 +142,11 @@ def test_diff_cli_reports_reflow_between_runs(
         sample_id=1,
         relative_path="sample-1.eml",
         decision="brand-generic",
+        bucket="brand",
         action=None,
         matched_rules=(),
+        matched_signals=(),
+        signal_score=0,
         rejected_candidates=(),
         fallback_reason=None,
         registry_sha256="a",
@@ -149,8 +156,11 @@ def test_diff_cli_reports_reflow_between_runs(
         sample_id=1,
         relative_path="sample-1.eml",
         decision="login-lure",
+        bucket="account-security",
         action="quarantine",
         matched_rules=(),
+        matched_signals=(),
+        signal_score=0,
         rejected_candidates=(),
         fallback_reason=None,
         registry_sha256="b",
@@ -185,14 +195,48 @@ def test_diff_cli_reports_reflow_between_runs(
     assert moves[0]["count"] == 1
 
 
+def test_load_decisions_defaults_round3_artifacts(tmp_path: Path) -> None:
+    # Given: a decision line from before bucket/signal fields existed.
+    path = tmp_path / "old.jsonl"
+    _ = path.write_text(
+        json.dumps(
+            {
+                "sample_id": 8,
+                "relative_path": "sample-8.eml",
+                "decision": "login-lure",
+                "action": "quarantine",
+                "matched_rules": [],
+                "rejected_candidates": [],
+                "fallback_reason": None,
+                "registry_sha256": "a",
+                "source_sha256": "s8",
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    # When: the new loader reads the legacy artifact.
+    decision, = load_decisions(path)
+
+    # Then: missing observational fields default deterministically.
+    assert decision.bucket == "login-lure"
+    assert decision.matched_signals == ()
+    assert decision.signal_score == 0
+
+
 def test_load_decisions_round_trips(tmp_path: Path) -> None:
     # Given: serialized decisions written to disk.
     decision = Decision(
         sample_id=7,
         relative_path="sample-7.eml",
         decision="unmatched",
+        bucket="unmatched",
         action=None,
         matched_rules=(),
+        matched_signals=(),
+        signal_score=0,
         rejected_candidates=(),
         fallback_reason="no_rules_matched",
         registry_sha256="a",

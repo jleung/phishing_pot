@@ -10,6 +10,7 @@ from phishing_contract.registry import (
 )
 
 FIXTURES = Path(__file__).parent / "fixtures" / "categories"
+PROJECT_ROOT = Path(__file__).parent.parent
 
 
 def test_registry_accepts_header_derived_fields() -> None:
@@ -21,6 +22,23 @@ def test_registry_accepts_header_derived_fields() -> None:
     assert category.id == "spoofed-brand-alert"
     fields = {rule.field for rule in category.rules}
     assert fields == {"from_display_name", "dkim_result", "header_encoding_anomaly"}
+
+
+def test_registry_accepts_signal_thresholds() -> None:
+    # Given: a registry that uses signals without hard rules.
+    registry = load_registry(FIXTURES / "signals.toml")
+
+    # Then: the signal threshold and signal rules are validated and exposed.
+    category, = registry.categories
+    assert category.id == "account-risk-residual"
+    assert category.bucket == "account-security"
+    assert category.rules == ()
+    assert category.min_signals == 2
+    assert [signal.field for signal in category.signals] == [
+        "subject",
+        "url_host_matches_from",
+        "body_evidence",
+    ]
 
 
 def test_load_registry_parses_categories_rules_and_metadata() -> None:
@@ -36,15 +54,39 @@ def test_load_registry_parses_categories_rules_and_metadata() -> None:
     ).hexdigest()
     login, pdf = registry.categories
     assert login.id == "login-update-lure"
+    assert login.bucket == "login-update-lure"
     assert login.action == "quarantine"
     assert login.priority == 20
     assert login.acceptance == (1,)
     assert login.rules[0].field == "body_evidence"
     assert login.rules[0].op == "regex"
     assert login.rules[0].value == "(?i)account update"
+    assert login.signals == ()
+    assert login.min_signals == 0
     assert pdf.id == "pdf-delivery"
+    assert pdf.bucket == "pdf-delivery"
     assert pdf.rules[0].op == "extension_in"
     assert pdf.rules[0].value == ("pdf",)
+
+
+def test_taxonomy_v4_has_bucket_residual_priority_tiers() -> None:
+    # Given: the round-4 taxonomy.
+    registry = load_registry(PROJECT_ROOT / "categories" / "taxonomy-v4.toml")
+
+    # Then: every category declares one bucket, and residuals sit below subtypes.
+    residuals = {
+        category.id: category for category in registry.categories
+        if category.id.endswith("-residual")
+    }
+    assert len(residuals) == 7
+    assert all(category.bucket for category in registry.categories)
+    assert {category.priority for category in residuals.values()} == {20}
+    subtype_priorities = {
+        category.id: category.priority for category in registry.categories
+        if not category.id.endswith("-residual")
+    }
+    assert subtype_priorities.pop("stylized-unicode-subject") == 10
+    assert set(subtype_priorities.values()) == {30}
 
 
 def test_load_registry_rejects_duplicate_category_ids() -> None:

@@ -2,6 +2,7 @@ schema_version = 1
 
 [[category]]
 id = "account-signin-alert"
+bucket = "account-security"
 description = "Account security / unusual sign-in alerts harvesting credentials"
 action = "quarantine"
 priority = 20
@@ -14,6 +15,7 @@ value = "(?i)unusual signin"
 
 [[category]]
 id = "crypto-wallet-verification"
+bucket = "crypto"
 description = "Wallet / asset access verification lures targeting crypto holders"
 action = "quarantine"
 priority = 20
@@ -26,6 +28,7 @@ value = "(?i)unauthorized (access|transaction)"
 
 [[category]]
 id = "points-expiry"
+bucket = "rewards-promotions"
 description = "Loyalty / bank points expiry lures (Livelo and similar)"
 action = "quarantine"
 priority = 20
@@ -38,6 +41,7 @@ value = "(?i)pontos.{0,80}expir"
 
 [[category]]
 id = "investment-lure"
+bucket = "financial"
 description = "Investment proposition lures, often RE: reply chains"
 action = "flag"
 priority = 10

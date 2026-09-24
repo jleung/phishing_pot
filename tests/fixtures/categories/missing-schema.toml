@@ -1,5 +1,6 @@
 [[category]]
 id = "login-update-lure"
+bucket = "login-update-lure"
 description = "Account update lures"
 action = "quarantine"
 priority = 20

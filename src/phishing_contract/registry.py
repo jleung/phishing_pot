@@ -30,6 +30,7 @@ BOOL_FIELDS: Final = frozenset(
         "sender_reply_agree",
         "sender_envelope_agree",
         "header_encoding_anomaly",
+        "url_host_matches_from",
     }
 )
 INT_FIELDS: Final = frozenset({"url_count"})
@@ -67,10 +68,13 @@ class Category:
     """A named phishing subtype with an action and deterministic match rules."""
 
     id: str
+    bucket: str
     description: str
     action: str
     priority: int
     rules: tuple[Rule, ...]
+    signals: tuple[Rule, ...]
+    min_signals: int
     acceptance: tuple[int, ...]
 
 
@@ -127,6 +131,15 @@ def _category_from_entry(entry: object) -> Category:
             message=f"Category id must be a lowercase slug: {category_id!r}"
         )
 
+    bucket = _string(table.get("bucket"), f"category {category_id} bucket")
+    if CATEGORY_ID_PATTERN.fullmatch(bucket) is None:
+        raise RegistryError(
+            message=(
+                f"Category {category_id} bucket must be a lowercase slug: "
+                f"{bucket!r}"
+            )
+        )
+
     description = _string(table.get("description"), "category description")
     action = _string(table.get("action"), "category action")
 
@@ -147,41 +160,65 @@ def _category_from_entry(entry: object) -> Category:
     )
 
     rules = tuple(
-        _rule_from_entry(category_id, rule_entry)
+        _rule_from_entry(category_id, rule_entry, "rule")
         for rule_entry in _array(
             table.get("rules", []), f"category {category_id} rules"
         )
     )
-    if not rules:
+    signals = tuple(
+        _rule_from_entry(category_id, signal_entry, "signal")
+        for signal_entry in _array(
+            table.get("signals", []), f"category {category_id} signals"
+        )
+    )
+    min_signals = _nonnegative_integer(
+        table.get("min_signals", 0), f"category {category_id} min_signals"
+    )
+    if min_signals > len(signals):
         raise RegistryError(
-            message=f"Category {category_id} requires at least one rule"
+            message=(
+                f"Category {category_id} min_signals exceeds declared signals"
+            )
+        )
+    if not rules and min_signals == 0:
+        raise RegistryError(
+            message=(
+                f"Category {category_id} requires at least one rule or "
+                "min_signals > 0"
+            )
         )
 
     return Category(
         id=category_id,
+        bucket=bucket,
         description=description,
         action=action,
         priority=priority_value,
         rules=rules,
+        signals=signals,
+        min_signals=min_signals,
         acceptance=acceptance,
     )
 
 
-def _rule_from_entry(category_id: str, entry: object) -> Rule:
-    table = _table(entry, f"category {category_id} rule")
+def _rule_from_entry(category_id: str, entry: object, kind: str) -> Rule:
+    table = _table(entry, f"category {category_id} {kind}")
 
-    field = _string(table.get("field"), f"category {category_id} rule field")
+    field = _string(table.get("field"), f"category {category_id} {kind} field")
     if field not in (
         TEXT_FIELDS | BOOL_FIELDS | INT_FIELDS | LIST_FIELDS | ATTACHMENT_FIELDS
     ):
         raise RegistryError(
-            message=f"Category {category_id} rule uses unsupported field: {field!r}"
+            message=(
+                f"Category {category_id} {kind} uses unsupported field: "
+                f"{field!r}"
+            )
         )
 
-    op = _string(table.get("op"), f"category {category_id} rule op")
+    op = _string(table.get("op"), f"category {category_id} {kind} op")
     if op not in SUPPORTED_OPS:
         raise RegistryError(
-            message=f"Category {category_id} rule uses unsupported op: {op!r}"
+            message=f"Category {category_id} {kind} uses unsupported op: {op!r}"
         )
 
     value = table.get("value")
@@ -189,7 +226,10 @@ def _rule_from_entry(category_id: str, entry: object) -> Rule:
     if op == "regex":
         if not isinstance(value, str):
             raise RegistryError(
-                message=f"Category {category_id} regex op requires a string value"
+                message=(
+                    f"Category {category_id} {kind} regex op requires "
+                    "a string value"
+                )
             )
         try:
             _ = re.compile(value)
@@ -200,17 +240,18 @@ def _rule_from_entry(category_id: str, entry: object) -> Rule:
     elif op == "eq":
         if not isinstance(value, str | bool | int):
             raise RegistryError(
-                message=f"Category {category_id} eq op requires a scalar value"
+                message=f"Category {category_id} {kind} eq op requires a scalar value"
             )
     elif op in {"in", "extension_in"}:
         if not isinstance(value, list):
             raise RegistryError(
                 message=(
-                    f"Category {category_id} {op} op requires an array of strings"
+                    f"Category {category_id} {kind} {op} op requires an "
+                    "array of strings"
                 )
             )
         _ = _string_list(
-            cast("list[object]", value), f"category {category_id} {op} value"
+            cast("list[object]", value), f"category {category_id} {kind} {op} value"
         )
 
     _validate_op_field_fit(category_id, field, op)
@@ -278,3 +319,10 @@ def _integer(raw: object, context: str) -> int:
     if isinstance(raw, bool) or not isinstance(raw, int):
         raise RegistryError(message=f"{context} must be an integer")
     return raw
+
+
+def _nonnegative_integer(raw: object, context: str) -> int:
+    value = _integer(raw, context)
+    if value < 0:
+        raise RegistryError(message=f"{context} must be non-negative")
+    return value

@@ -7,7 +7,7 @@ id = "account-signin-alert"
 bucket = "account-security"
 description = "Account security / unusual sign-in alerts harvesting credentials"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [10, 1001]
 
 [[category.rules]]
@@ -20,7 +20,7 @@ id = "crypto-wallet-verification"
 bucket = "crypto"
 description = "Wallet / asset access verification lures targeting crypto holders"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [1014]
 
 [[category.rules]]
@@ -33,7 +33,7 @@ id = "points-expiry"
 bucket = "rewards-promotions"
 description = "Loyalty / bank points expiry lures (Livelo and similar)"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [1, 1050]
 
 [[category.rules]]
@@ -46,7 +46,7 @@ id = "investment-lure"
 bucket = "financial"
 description = "Investment proposition lures, often RE: reply chains"
 action = "flag"
-priority = 10
+priority = 30
 acceptance = [406]
 
 [[category.rules]]
@@ -61,7 +61,7 @@ id = "customs-package-hold"
 bucket = "logistics"
 description = "Correios/customs lures claiming a package is held at the border"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [3612]
 
 [[category.rules]]
@@ -74,7 +74,7 @@ id = "cpf-tax-notice"
 bucket = "government-legal"
 description = "Fake Receita Federal notices about CPF regularisation fees"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [4923]
 
 [[category.rules]]
@@ -87,7 +87,7 @@ id = "cnh-suspension"
 bucket = "government-legal"
 description = "Fake DETRAN notices threatening driving-license suspension"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [4368]
 
 [[category.rules]]
@@ -100,7 +100,7 @@ id = "ledger-lure"
 bucket = "crypto"
 description = "Ledger hardware-wallet lures (data breach, reminders, updates)"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [4359]
 
 [[category.rules]]
@@ -113,7 +113,7 @@ id = "casino-bonus"
 bucket = "rewards-promotions"
 description = "German casino bonus / freespins no-deposit spam"
 action = "flag"
-priority = 20
+priority = 30
 acceptance = [4862]
 
 [[category.rules]]
@@ -126,7 +126,7 @@ id = "login-alert-obfuscated"
 bucket = "account-security"
 description = "Login attempt alerts with character-substitution obfuscation"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [26]
 
 [[category.rules]]
@@ -139,7 +139,7 @@ id = "prize-won"
 bucket = "rewards-promotions"
 description = "Prize / giveaway spam ('You have won an ...', German 'Gewinnen')"
 action = "flag"
-priority = 20
+priority = 30
 acceptance = [209, 1601]
 
 [[category.rules]]
@@ -152,7 +152,7 @@ id = "bank-block-alert"
 bucket = "financial"
 description = "Bank account blocked / suspended alerts demanding action"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [5]
 
 [[category.rules]]
@@ -165,7 +165,7 @@ id = "payment-confirmation"
 bucket = "financial"
 description = "Fake payment report / successful payment confirmations"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [77]
 
 [[category.rules]]
@@ -178,7 +178,7 @@ id = "wallet-update"
 bucket = "crypto"
 description = "Trust Wallet / MetaMask update and access lures"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [15]
 
 [[category.rules]]
@@ -191,7 +191,7 @@ id = "fbi-letter"
 bucket = "government-legal"
 description = "Fake FBI letters impersonating law enforcement"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [119]
 
 [[category.rules]]
@@ -204,7 +204,7 @@ id = "temu-survey"
 bucket = "commerce-spam"
 description = "Temu shopping-experience survey reward spam"
 action = "flag"
-priority = 20
+priority = 30
 acceptance = [2417]
 
 [[category.rules]]
@@ -217,7 +217,7 @@ id = "advance-fee-legacy"
 bucket = "financial"
 description = "Classic advance-fee / 'valued beneficiary' correspondence lures"
 action = "flag"
-priority = 20
+priority = 30
 acceptance = [136]
 
 [[category.rules]]
@@ -232,7 +232,7 @@ id = "import-tax-notice"
 bucket = "logistics"
 description = "Importation fee / customs tax regularisation lures for held packages"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [3769, 3793]
 
 [[category.rules]]
@@ -245,7 +245,7 @@ id = "bank-unblock-lure"
 bucket = "financial"
 description = "Portuguese bank lures: temporary block / unblock internet banking"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [545, 613]
 
 [[category.rules]]
@@ -258,7 +258,7 @@ id = "account-verification"
 bucket = "account-security"
 description = "Urgent account-verification lures addressing the victim by name"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [924, 990]
 
 [[category.rules]]
@@ -271,7 +271,7 @@ id = "german-prosecution"
 bucket = "government-legal"
 description = "German prosecution / indictment letter lures (Anklageschreiben)"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [886]
 
 [[category.rules]]
@@ -284,7 +284,7 @@ id = "lucky-winner-confirmation"
 bucket = "rewards-promotions"
 description = "Prize confirmation-code and lucky-winner lures (Confirmation-NNN)"
 action = "flag"
-priority = 20
+priority = 30
 acceptance = [237]
 
 [[category.rules]]
@@ -297,7 +297,7 @@ id = "crypto-staking"
 bucket = "crypto"
 description = "Staking / airdrop feature lures targeting crypto holders"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [1100, 135]
 
 [[category.rules]]
@@ -310,7 +310,7 @@ id = "wholesale-spam"
 bucket = "commerce-spam"
 description = "Wholesale survey / cleansing offer spam templates"
 action = "flag"
-priority = 20
+priority = 30
 acceptance = [1613, 1697]
 
 [[category.rules]]
@@ -323,7 +323,7 @@ id = "device-access-alert"
 bucket = "account-security"
 description = "New-device login alerts in Portuguese (novo dispositivo)"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [1111, 1317]
 
 [[category.rules]]
@@ -336,7 +336,7 @@ id = "photos-deletion-alert"
 bucket = "account-security"
 description = "Account blocked / photos-deletion threats demanding verification"
 action = "quarantine"
-priority = 20
+priority = 30
 acceptance = [6161]
 
 [[category.rules]]
@@ -349,7 +349,7 @@ id = "discount-code-spam"
 bucket = "commerce-spam"
 description = "Discount code / saving pass promotional lures"
 action = "flag"
-priority = 20
+priority = 30
 acceptance = [601]
 
 [[category.rules]]
@@ -369,3 +369,138 @@ acceptance = [2978]
 field = "subject"
 op = "regex"
 value = "[\U0001D000-\U0001DFFF]"
+
+# --- v4: bucket-level residual categories -----------------------------------
+
+[[category]]
+id = "account-security-residual"
+bucket = "account-security"
+description = "Broad account-security lures that do not match a named subtype"
+action = "quarantine"
+priority = 20
+min_signals = 2
+acceptance = []
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = "(?i)(account|login|password|verification|verify|security|unusual|suspicious|device|blocked)"
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = "(?i)(account|login|password|verify|verification|security|suspended|unauthorized)"
+
+[[category]]
+id = "crypto-residual"
+bucket = "crypto"
+description = "Broad crypto wallet, token, staking, and airdrop lures"
+action = "quarantine"
+priority = 20
+min_signals = 2
+acceptance = []
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = "(?i)(crypto|wallet|ledger|metamask|staking|airdrop|bitcoin|btc|ethereum|token)"
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = "(?i)(crypto|wallet|ledger|metamask|staking|airdrop|bitcoin|btc|ethereum|token)"
+
+[[category]]
+id = "financial-residual"
+bucket = "financial"
+description = "Broad financial, banking, payment, invoice, and beneficiary lures"
+action = "quarantine"
+priority = 20
+min_signals = 2
+acceptance = []
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = "(?i)(bank|payment|invoice|transfer|beneficiary|investment|loan)"
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = "(?i)(bank|payment|invoice|transfer|beneficiary|investment|loan)"
+
+[[category]]
+id = "logistics-residual"
+bucket = "logistics"
+description = "Broad package, customs, shipment, delivery, and import-tax lures"
+action = "quarantine"
+priority = 20
+min_signals = 2
+acceptance = []
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = "(?i)(package|delivery|correios|customs|import|taxa|shipment|pedido|tracking)"
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = "(?i)(package|delivery|correios|customs|import|taxa|shipment|pedido|tracking)"
+
+[[category]]
+id = "government-legal-residual"
+bucket = "government-legal"
+description = "Broad government, legal, tax-agency, and law-enforcement lures"
+action = "quarantine"
+priority = 20
+min_signals = 2
+acceptance = []
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = "(?i)(cpf|cnh|receita|detran|federal|bureau|investigation|prosecution|anklage|court|police)"
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = "(?i)(cpf|cnh|receita|detran|federal|bureau|investigation|prosecution|anklage|court|police)"
+
+[[category]]
+id = "rewards-promotions-residual"
+bucket = "rewards-promotions"
+description = "Broad prize, reward, loyalty-points, casino, and giveaway lures"
+action = "flag"
+priority = 20
+min_signals = 2
+acceptance = []
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = "(?i)(won|winner|prize|bonus|points|pontos|expiry|reward|gift|casino|gewinn|confirmation)"
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = "(?i)(won|winner|prize|bonus|points|pontos|expiry|reward|gift|casino|gewinn|confirmation)"
+
+[[category]]
+id = "commerce-spam-residual"
+bucket = "commerce-spam"
+description = "Broad shopping, survey, discount, wholesale, coupon, and offer spam"
+action = "flag"
+priority = 20
+min_signals = 2
+acceptance = []
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = "(?i)(temu|survey|discount|coupon|wholesale|saving|offer|deal|shopping)"
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = "(?i)(temu|survey|discount|coupon|wholesale|saving|offer|deal|shopping)"

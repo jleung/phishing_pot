@@ -2,6 +2,7 @@ schema_version = 1
 
 [[category]]
 id = "login-update-lure"
+bucket = "login-update-lure"
 description = "Account update lures"
 action = "quarantine"
 priority = 20
@@ -14,6 +15,7 @@ value = "update"
 
 [[category]]
 id = "login-update-lure"
+bucket = "login-update-lure"
 description = "Duplicate definition"
 action = "quarantine"
 priority = 10

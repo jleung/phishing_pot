@@ -1,0 +1,25 @@
+schema_version = 1
+
+[[category]]
+id = "account-risk-residual"
+bucket = "account-security"
+description = "Broad account-security residual requiring two soft signals"
+action = "flag"
+priority = 20
+min_signals = 2
+acceptance = []
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = "(?i)account"
+
+[[category.signals]]
+field = "url_host_matches_from"
+op = "eq"
+value = false
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = "(?i)verify"

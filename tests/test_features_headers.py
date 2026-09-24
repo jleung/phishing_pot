@@ -74,6 +74,7 @@ def test_html_urls_count_including_href_but_not_script() -> None:
     # leaks into the evidence.
     assert feature.url_count == 2
     assert len(feature.url_host_hashes) == 2
+    assert feature.url_host_matches_from is False
     assert "evil.example" not in feature.body_evidence
 
 

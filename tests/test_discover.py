@@ -36,6 +36,7 @@ def _feature(
         attachments=(),
         url_count=0,
         url_host_hashes=(),
+        url_host_matches_from=False,
         languages=languages,
         charsets=("utf-8",),
         unicode_obfuscation=False,

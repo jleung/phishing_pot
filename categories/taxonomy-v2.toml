@@ -4,6 +4,7 @@ schema_version = 1
 
 [[category]]
 id = "account-signin-alert"
+bucket = "account-security"
 description = "Account security / unusual sign-in alerts harvesting credentials"
 action = "quarantine"
 priority = 20
@@ -16,6 +17,7 @@ value = "(?i)unusual signin"
 
 [[category]]
 id = "crypto-wallet-verification"
+bucket = "crypto"
 description = "Wallet / asset access verification lures targeting crypto holders"
 action = "quarantine"
 priority = 20
@@ -28,6 +30,7 @@ value = "(?i)unauthorized (access|transaction)"
 
 [[category]]
 id = "points-expiry"
+bucket = "rewards-promotions"
 description = "Loyalty / bank points expiry lures (Livelo and similar)"
 action = "quarantine"
 priority = 20
@@ -40,6 +43,7 @@ value = "(?i)pontos.{0,80}expir"
 
 [[category]]
 id = "investment-lure"
+bucket = "financial"
 description = "Investment proposition lures, often RE: reply chains"
 action = "flag"
 priority = 10
@@ -54,6 +58,7 @@ value = "(?i)investment proposition"
 
 [[category]]
 id = "customs-package-hold"
+bucket = "logistics"
 description = "Correios/customs lures claiming a package is held at the border"
 action = "quarantine"
 priority = 20
@@ -66,6 +71,7 @@ value = "(?i)pedido foi bloqueado pela fiscaliza"
 
 [[category]]
 id = "cpf-tax-notice"
+bucket = "government-legal"
 description = "Fake Receita Federal notices about CPF regularisation fees"
 action = "quarantine"
 priority = 20
@@ -78,6 +84,7 @@ value = "(?i)\\bcpf\\b"
 
 [[category]]
 id = "cnh-suspension"
+bucket = "government-legal"
 description = "Fake DETRAN notices threatening driving-license suspension"
 action = "quarantine"
 priority = 20
@@ -90,6 +97,7 @@ value = "(?i)\\bcnh\\b"
 
 [[category]]
 id = "ledger-lure"
+bucket = "crypto"
 description = "Ledger hardware-wallet lures (data breach, reminders, updates)"
 action = "quarantine"
 priority = 20
@@ -102,6 +110,7 @@ value = "(?i)ledger"
 
 [[category]]
 id = "casino-bonus"
+bucket = "rewards-promotions"
 description = "German casino bonus / freespins no-deposit spam"
 action = "flag"
 priority = 20
@@ -114,6 +123,7 @@ value = "(?i)(casino bonus|freispielen|einzahlung)"
 
 [[category]]
 id = "login-alert-obfuscated"
+bucket = "account-security"
 description = "Login attempt alerts with character-substitution obfuscation"
 action = "quarantine"
 priority = 20
@@ -126,6 +136,7 @@ value = "(?i)tried to [1li]og in"
 
 [[category]]
 id = "prize-won"
+bucket = "rewards-promotions"
 description = "Prize / giveaway spam ('You have won an ...', German 'Gewinnen')"
 action = "flag"
 priority = 20
@@ -138,6 +149,7 @@ value = "(?i)^(you have won|gewinnen)"
 
 [[category]]
 id = "bank-block-alert"
+bucket = "financial"
 description = "Bank account blocked / suspended alerts demanding action"
 action = "quarantine"
 priority = 20
@@ -150,6 +162,7 @@ value = "(?i)(account has been blocked|conta (foi|esteve) bloqueada)"
 
 [[category]]
 id = "payment-confirmation"
+bucket = "financial"
 description = "Fake payment report / successful payment confirmations"
 action = "quarantine"
 priority = 20
@@ -162,6 +175,7 @@ value = "(?i)^payment (report|successful)\\b"
 
 [[category]]
 id = "wallet-update"
+bucket = "crypto"
 description = "Trust Wallet / MetaMask update and access lures"
 action = "quarantine"
 priority = 20
@@ -174,6 +188,7 @@ value = "(?i)(trust wallet|metamask)"
 
 [[category]]
 id = "fbi-letter"
+bucket = "government-legal"
 description = "Fake FBI letters impersonating law enforcement"
 action = "quarantine"
 priority = 20
@@ -186,6 +201,7 @@ value = "(?i)federal bureau of investigation"
 
 [[category]]
 id = "temu-survey"
+bucket = "commerce-spam"
 description = "Temu shopping-experience survey reward spam"
 action = "flag"
 priority = 20
@@ -198,6 +214,7 @@ value = "(?i)rate your shopping experience"
 
 [[category]]
 id = "advance-fee-legacy"
+bucket = "financial"
 description = "Classic advance-fee / 'valued beneficiary' correspondence lures"
 action = "flag"
 priority = 20

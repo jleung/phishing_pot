@@ -48,9 +48,9 @@ Artifacts land in `artifacts/` (gitignored): `<run>.decisions.jsonl`,
   acceptance sample to resolve to its own category — it is the regression test
   for the taxonomy. Verify acceptance candidates with `show` before wiring.
 - **Tiny boolean DSL.** Ops: `regex` (search; records the matched excerpt ≤80
-  chars), `eq`, `in`, `extension_in`. Bool fields use `eq`. All rules in a
-  category must match (AND). Deliberately minimal; discovery informs growth
-  (round 4 adds soft `signals` + `min_signals`).
+  chars), `eq`, `in`, `extension_in`. Bool fields use `eq`. All hard `rules`
+  in a category must match (AND). Optional soft `signals` record extra evidence;
+  `min_signals` can require N of those signals for broad residual categories.
 - **Observability = the decision JSONL.** Per sample: winning `matched_rules`
   with evidence excerpts, *ranked* `rejected_candidates` (runner-up first, with
   its own evidence), `fallback_reason` (`no_rules_matched` | `priority_tie:a|b`),
@@ -66,7 +66,8 @@ Artifacts land in `artifacts/` (gitignored): `<run>.decisions.jsonl`,
   Raw-markup evidence diluted discovery 10× (2,537-sample smear cluster vs.
   163 max after the fix).
 - **Priority tiers (round 4):** specific subtypes 30, bucket-level residual
-  categories 20, so broad nets catch new phrasings without tying with subtypes.
+  categories 20, and the broad technique-only unicode category remains 10, so
+  intent categories catch new phrasings without tying with subtypes.
 - **Dev-set framing.** The tuning loop (dossier → new category → acceptance →
   re-run → diff) is a *development* workflow; what ships for arbitrary mail is
   the feature contract + registry + classifier. Acceptance samples are
@@ -113,20 +114,28 @@ Artifacts land in `artifacts/` (gitignored): `<run>.decisions.jsonl`,
 
 ## State of the work
 
-- Taxonomy: `categories/taxonomy-v3.toml` — 28 categories (intent subtypes).
-  Earlier rounds: `seed.toml` (4), `taxonomy-v2.toml` (17).
-- Latest run **v5**: 1,344 matched (15.6%), 11 needs_review, 7,259 unmatched.
-  Curve: 242 → 523 → 1,183 → 1,344 matched across rounds.
-- The unmatched tail is a **power-law of ~500 campaigns** (535 clusters, 403 of
-  them size 3–9). Single-regex categories hit diminishing returns; the plan is
-  breadth, not count.
-- Round 4 (scoped, not started): (1) `url_host_matches_from` bool feature —
-  URL host vs `from_domain` mismatch signal; (2) DSL soft `signals` +
-  `min_signals` + per-candidate `matched_signals`/`signal_score` (observational
-  only); (3) two-level taxonomy — `bucket` field on all categories + 6–8
-  bucket-level residual categories with multi-signal rules (subtypes 30 /
-  buckets 20), `summary` gains `bucket_counts`; (4) run v6, diff, discover,
-  report. Each step is a TDD slice, one commit.
+- Taxonomy: `categories/taxonomy-v4.toml` — 35 categories: 28 named subtypes
+  plus 7 bucket-level residual categories. Earlier rounds: `seed.toml` (4),
+  `taxonomy-v2.toml` (17), `taxonomy-v3.toml` (28).
+- Latest run **v6**: 2,817 matched (32.7%), 131 needs_review, 5,666 unmatched.
+  Curve: 242 → 523 → 1,183 → 1,344 → 2,817 matched across rounds.
+- The unmatched tail remains a **power-law of hundreds of campaigns** (v6:
+  427 clusters, 3,938 clustered of 5,666 unmatched). Single-regex categories
+  hit diminishing returns; the plan is breadth, not count.
+- Round 4 completed locally: `url_host_matches_from` is in the feature contract;
+  the registry supports `signals` and `min_signals`; decisions carry
+  `matched_signals` and `signal_score` without using scores for tie-breaking;
+  categories carry `bucket`; summaries include `bucket_counts`; v4 adds 7
+  residual bucket categories below subtype priority. Corpus run commands used:
+  `classify` v5/v6, `diff` v5→v6, and `discover` v6 under `artifacts/round4/`
+  (artifacts remain gitignored). Movement: 1,473 additional matched emails,
+  1,593 fewer unmatched, 120 additional review ties; biggest new residuals are
+  rewards-promotions (627), crypto (269), account-security (190), logistics
+  (181), commerce-spam (105), financial (86), and government-legal (15).
+  Discovery on the v6 unmatched tail found 427 clusters covering 3,938 of the
+  5,666 unmatched samples; largest clusters point at portable-jump-starter/
+  antivirus offers, German reminders, sextortion, McAfee renewals, and health
+  plan promotions.
 
 ## Conventions
 

@@ -28,6 +28,7 @@ def _feature(
     from_domain: str = "sender.example",
     attachments: tuple[str, ...] = (),
     url_count: int = 0,
+    url_host_matches_from: bool = False,
     unicode_obfuscation: bool = False,
     quality_flags: tuple[str, ...] = (),
     languages: tuple[str, ...] = ("ascii",),
@@ -51,6 +52,7 @@ def _feature(
         mime_form="text/plain",
         url_count=url_count,
         url_host_hashes=(),
+        url_host_matches_from=url_host_matches_from,
         attachments=tuple(
             AttachmentMetadata(
                 name=f"file.{extension}",
@@ -139,10 +141,13 @@ def test_single_matching_rule_produces_category_decision_with_evidence() -> None
     # Given: a category with a regex rule that matches the record body.
     category = Category(
         id="login-lure",
+        bucket="login-lure",
         description="d",
         action="quarantine",
         priority=10,
         rules=(Rule(field="body_evidence", op="regex", value="(?i)account update"),),
+        signals=(),
+        min_signals=0,
         acceptance=(),
     )
     record = _feature(body="Please complete your account update now.")
@@ -164,6 +169,7 @@ def test_category_requires_all_rules_to_match() -> None:
     # Given: a category whose two rules cannot both match one record.
     category = Category(
         id="strict",
+        bucket="strict",
         description="d",
         action="quarantine",
         priority=10,
@@ -171,6 +177,8 @@ def test_category_requires_all_rules_to_match() -> None:
             Rule(field="subject", op="regex", value="(?i)invoice"),
             Rule(field="body_evidence", op="regex", value="(?i)wire transfer"),
         ),
+        signals=(),
+        min_signals=0,
         acceptance=(),
     )
     record = _feature(subject="Invoice 991", body="please review the invoice")
@@ -188,18 +196,24 @@ def test_higher_priority_category_wins_and_loser_is_rejected() -> None:
     # Given: two categories that both match, at different priorities.
     low = Category(
         id="brand-generic",
+        bucket="brand-generic",
         description="d",
         action="quarantine",
         priority=10,
         rules=(Rule(field="body_evidence", op="regex", value="(?i)update"),),
+        signals=(),
+        min_signals=0,
         acceptance=(),
     )
     high = Category(
         id="login-lure",
+        bucket="login-lure",
         description="d",
         action="quarantine",
         priority=20,
         rules=(Rule(field="body_evidence", op="regex", value="(?i)account update"),),
+        signals=(),
+        min_signals=0,
         acceptance=(),
     )
     record = _feature(body="your account update")
@@ -216,22 +230,110 @@ def test_higher_priority_category_wins_and_loser_is_rejected() -> None:
     assert rejected.matched_rules[0].matched_evidence == "update"
 
 
-def test_priority_tie_resolves_to_needs_review() -> None:
-    # Given: two categories with equal priority that both match.
+def test_signal_threshold_matches_candidate_and_is_observational() -> None:
+    # Given: a residual category with no hard rules and three soft signals.
+    category = Category(
+        id="account-residual",
+        bucket="account-security",
+        description="d",
+        action="flag",
+        priority=10,
+        rules=(),
+        signals=(
+            Rule(field="subject", op="regex", value="(?i)account"),
+            Rule(field="body_evidence", op="regex", value="(?i)verify"),
+            Rule(field="url_host_matches_from", op="eq", value=False),
+        ),
+        min_signals=2,
+        acceptance=(),
+    )
+    record = _feature(
+        subject="Account notice",
+        body="Please verify today",
+        url_host_matches_from=False,
+    )
+
+    # When: enough signals match.
+    decision = classify_record(record, _registry(category))
+    serialized = serialize_decision(decision)
+
+    # Then: the category matches and the signal evidence is reported separately.
+    assert decision.decision == "account-residual"
+    assert decision.bucket == "account-security"
+    assert decision.matched_rules == ()
+    assert [signal.field for signal in decision.matched_signals] == [
+        "subject",
+        "body_evidence",
+        "url_host_matches_from",
+    ]
+    assert decision.signal_score == 3
+    assert '"matched_signals"' in serialized
+    assert '"signal_score": 3' in serialized
+
+
+def test_signal_score_does_not_break_priority_ties() -> None:
+    # Given: two equal-priority categories, one with more matching signals.
     first = Category(
         id="alpha",
+        bucket="alpha",
         description="d",
         action="a1",
         priority=10,
-        rules=(Rule(field="body_evidence", op="regex", value="(?i)update"),),
+        rules=(),
+        signals=(
+            Rule(field="subject", op="regex", value="(?i)account"),
+            Rule(field="body_evidence", op="regex", value="(?i)verify"),
+        ),
+        min_signals=1,
         acceptance=(),
     )
     second = Category(
         id="beta",
+        bucket="beta",
+        description="d",
+        action="a2",
+        priority=10,
+        rules=(),
+        signals=(Rule(field="subject", op="regex", value="(?i)account"),),
+        min_signals=1,
+        acceptance=(),
+    )
+    record = _feature(subject="Account notice", body="Please verify")
+
+    # When: both categories match but have different signal scores.
+    decision = classify_record(record, _registry(first, second))
+
+    # Then: priority ties still go to review instead of being score-ranked.
+    assert decision.decision == "needs_review"
+    scores = {
+        candidate.category: candidate.signal_score
+        for candidate in decision.rejected_candidates
+    }
+    assert scores == {"alpha": 2, "beta": 1}
+
+
+def test_priority_tie_resolves_to_needs_review() -> None:
+    # Given: two categories with equal priority that both match.
+    first = Category(
+        id="alpha",
+        bucket="alpha",
+        description="d",
+        action="a1",
+        priority=10,
+        rules=(Rule(field="body_evidence", op="regex", value="(?i)update"),),
+        signals=(),
+        min_signals=0,
+        acceptance=(),
+    )
+    second = Category(
+        id="beta",
+        bucket="beta",
         description="d",
         action="a2",
         priority=10,
         rules=(Rule(field="body_evidence", op="regex", value="(?i)account"),),
+        signals=(),
+        min_signals=0,
         acceptance=(),
     )
     record = _feature(body="account update")
@@ -252,28 +354,37 @@ def test_eq_in_and_extension_ops_match_feature_fields() -> None:
     # Given: categories exercising eq, in, and extension_in ops.
     exact = Category(
         id="exact-domain",
+        bucket="exact-domain",
         description="d",
         action="a",
         priority=30,
         rules=(Rule(field="from_domain", op="eq", value="bad.example"),),
+        signals=(),
+        min_signals=0,
         acceptance=(),
     )
     flagged = Category(
         id="malformed-mail",
+        bucket="malformed-mail",
         description="d",
         action="a",
         priority=20,
         rules=(Rule(field="quality_flags", op="in", value=("malformed",)),),
+        signals=(),
+        min_signals=0,
         acceptance=(),
     )
     attached = Category(
         id="exe-attachment",
+        bucket="exe-attachment",
         description="d",
         action="a",
         priority=10,
         rules=(
             Rule(field="attachments", op="extension_in", value=("exe", "scr")),
         ),
+        signals=(),
+        min_signals=0,
         acceptance=(),
     )
     registry = _registry(exact, flagged, attached)
@@ -297,10 +408,13 @@ def test_serialize_decision_is_stable_sorted_jsonl() -> None:
     # Given: a decision with matched and rejected rules.
     category = Category(
         id="login-lure",
+        bucket="login-lure",
         description="d",
         action="quarantine",
         priority=10,
         rules=(Rule(field="body_evidence", op="regex", value="(?i)update"),),
+        signals=(),
+        min_signals=0,
         acceptance=(),
     )
     record = _feature(body="your account update")
@@ -323,10 +437,13 @@ def test_decision_type_is_decision() -> None:
     # Given: any classified record.
     category = Category(
         id="login-lure",
+        bucket="login-lure",
         description="d",
         action="quarantine",
         priority=10,
         rules=(Rule(field="body_evidence", op="regex", value="(?i)update"),),
+        signals=(),
+        min_signals=0,
         acceptance=(),
     )
     decision = classify_record(_feature(body="update"), _registry(category))
