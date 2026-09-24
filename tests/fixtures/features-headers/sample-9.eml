@@ -1,0 +1,18 @@
+From: "Bank Secure Team" <alert@secure-bank-example.com>
+To: victim@example.test
+Subject: Verify your account
+Message-ID: <html-body@example.test>
+Date: Wed, 26 Jul 2023 12:26:43 +0000
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<html><body style="font-family: Arial">
+<table width="600"><tr><td>
+<p>Dear customer, we detected unusual activity.</p>
+<p><a href="http://login.example/secure">Click here to verify</a></p>
+<p>Support: http://help.example/support</p>
+<script>var x = "http://evil.example/payload";</script>
+<style>body { color: #f00; }</style>
+<div>Call 0800 111 222 333 now.</div>
+</td></tr></table>
+</body></html>

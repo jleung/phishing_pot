@@ -52,6 +52,31 @@ def test_oddly_formatted_from_header_still_yields_clean_name() -> None:
     assert feature.message_id_domain == "access-accsecurity.com"
 
 
+def test_html_body_becomes_readable_text_evidence() -> None:
+    # Given: a fixture whose single part is HTML with tags, script, and styles.
+    feature = _extract(9, "sample-9.eml")
+    evidence = feature.body_evidence
+
+    # Then: the evidence is visible text, not markup.
+    assert "we detected unusual activity" in evidence
+    assert "<table" not in evidence
+    assert "<p>" not in evidence
+    assert "style=" not in evidence
+    assert "0800 111 222 333" in evidence
+
+
+def test_html_urls_count_including_href_but_not_script() -> None:
+    # Given: the same HTML fixture with a visible URL, an href URL, and a
+    # URL hidden inside a <script> tag.
+    feature = _extract(9, "sample-9.eml")
+
+    # Then: both real links count, the script URL does not, and it never
+    # leaks into the evidence.
+    assert feature.url_count == 2
+    assert len(feature.url_host_hashes) == 2
+    assert "evil.example" not in feature.body_evidence
+
+
 def test_malformed_ipv6_urls_do_not_break_extraction() -> None:
     # Given: a fixture whose body contains an unparseable IPv6-style URL.
     feature = _extract(8, "sample-8.eml")

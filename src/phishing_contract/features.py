@@ -11,8 +11,9 @@ from email import policy
 from email.header import decode_header
 from email.message import EmailMessage
 from email.parser import BytesParser
+from html.parser import HTMLParser
 from pathlib import Path
-from typing import Final, cast
+from typing import Final, cast, override
 from urllib.parse import urlsplit
 
 from phishing_contract.models import (
@@ -29,6 +30,31 @@ ENCODED_WORD_PATTERN = re.compile(r"=\?[A-Za-z0-9_-]+\?[QqBb]\?")
 AUTH_MECHANISMS: Final = ("spf", "dkim", "dmarc")
 STANDARD_CHARSETS: Final = frozenset({"utf-8", "us-ascii"})
 MIN_QUOTED_NAME_LENGTH: Final = 2
+SKIP_TAGS: Final = frozenset({"script", "style"})
+BLOCK_TAGS: Final = frozenset(
+    {
+        "br",
+        "blockquote",
+        "div",
+        "footer",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "header",
+        "li",
+        "ol",
+        "p",
+        "pre",
+        "section",
+        "table",
+        "td",
+        "tr",
+        "ul",
+    }
+)
 
 
 def extract_feature_record(
@@ -40,11 +66,11 @@ def extract_feature_record(
         return _empty_feature(source)
 
     message = BytesParser(policy=policy.default).parsebytes(raw_bytes)
-    body_text, charsets, attachments, flags = _content_metadata(message)
+    body_text, charsets, attachments, flags, href_urls = _content_metadata(message)
     from_domain = _address_domain(_decoded_header(message, "From"))
     reply_to_domain = _address_domain(_decoded_header(message, "Reply-To"))
     envelope_domain = _address_domain(_decoded_header(message, "Return-Path"))
-    urls: tuple[str, ...] = tuple(URL_PATTERN.findall(body_text))
+    urls: tuple[str, ...] = tuple(URL_PATTERN.findall(body_text)) + href_urls
     safe_body = _safe_text(body_text)
     quality_flags = _quality_flags(message, safe_body, flags)
     auth = _auth_results(message)
@@ -109,11 +135,12 @@ def write_features(records: tuple[FeatureRecord, ...], output_path: Path) -> Non
 
 def _content_metadata(
     message: EmailMessage,
-) -> tuple[str, set[str], tuple[AttachmentMetadata, ...], set[str]]:
+) -> tuple[str, set[str], tuple[AttachmentMetadata, ...], set[str], tuple[str, ...]]:
     body_parts: list[str] = []
     charsets: set[str] = set()
     attachments: list[AttachmentMetadata] = []
     flags: set[str] = set()
+    href_urls: list[str] = []
     for part in message.walk():
         charset = part.get_content_charset()
         if charset is not None:
@@ -123,12 +150,59 @@ def _content_metadata(
         if part.get_content_disposition() == "attachment":
             attachments.append(_attachment_metadata(part.get_filename(), payload))
         elif part.get_content_maintype() == "text" and not part.is_multipart():
-            body_parts.append(_decode_bytes(payload, charset, flags))
+            text = _decode_bytes(payload, charset, flags)
+            if part.get_content_subtype() == "html":
+                extractor = _HtmlTextExtractor()
+                extractor.feed(text)
+                extractor.close()
+                body_parts.append(extractor.text())
+                href_urls.extend(extractor.hrefs)
+            else:
+                body_parts.append(text)
         if part.get("Content-Transfer-Encoding", "").lower() == "base64":
             raw_payload = part.get_payload(decode=False)
             if isinstance(raw_payload, str | bytes):
                 _validate_base64(raw_payload, flags)
-    return "\n".join(body_parts), charsets, tuple(attachments), flags
+    return "\n".join(body_parts), charsets, tuple(attachments), flags, tuple(href_urls)
+
+
+class _HtmlTextExtractor(HTMLParser):
+    """Collect visible text and link targets from markup without rendering."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._chunks: list[str] = []
+        self.hrefs: list[str] = []
+        self._skip_depth: int = 0
+
+    @override
+    def handle_starttag(
+        self, tag: str, attrs: list[tuple[str, str | None]]
+    ) -> None:
+        if tag in SKIP_TAGS:
+            self._skip_depth += 1
+        if tag == "a":
+            for name, value in attrs:
+                if name == "href" and value:
+                    self.hrefs.append(value)
+        if tag in BLOCK_TAGS:
+            self._chunks.append(" ")
+
+    @override
+    def handle_endtag(self, tag: str) -> None:
+        if tag in SKIP_TAGS:
+            if self._skip_depth:
+                self._skip_depth -= 1
+        elif tag in BLOCK_TAGS:
+            self._chunks.append(" ")
+
+    @override
+    def handle_data(self, data: str) -> None:
+        if self._skip_depth == 0:
+            self._chunks.append(data)
+
+    def text(self) -> str:
+        return " ".join(self._chunks)
 
 
 def _attachment_metadata(name: str | None, payload: bytes) -> AttachmentMetadata:
