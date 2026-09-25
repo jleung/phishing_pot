@@ -1,0 +1,1072 @@
+# Taxonomy v5 — round 5 (fm/interview-round5).
+#
+# Design rules honored here:
+# * Multiple rules in one category are AND'd (all must match); alternatives
+#   are expressed as regex alternation inside a single rule.
+# * Heterogeneous lure families use signals with min_signals (OR-count
+#   semantics) instead of many AND'd rules.
+# * Text is folded (casefold + lookalike normalization) before matching, so
+#   regexes are case-insensitive by construction and accented variants are
+#   written explicitly (fold does not strip accents).
+# * Priorities: subtypes 30 (customs 29), direct-marketing 25, residuals 20,
+#   attachment-led 15, stylized-unicode technique 10, catch-all 5.
+
+schema_version = 1
+
+# --- Account security ---------------------------------------------------------
+
+[[category]]
+id = "account-signin-alert"
+type = "credential-harvesting"
+family = "credential"
+display = "credential-harvesting/credential"
+rubric = "Account 'you recently signed in' alerts, including unicode-obfuscated brand lures. Subject carries a sign-in/login/security-alert frame with a brand or case marker; body pushes a verification link."
+bucket = "account-security"
+description = "Account security / unusual sign-in alerts harvesting credentials"
+action = "quarantine"
+priority = 31
+acceptance = [10, 1001, 7218]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(unusual sign[ -]?in|novo acesso|acesso a sua conta|(de-?activat\w*|suspend\w*) request)'
+
+[[category]]
+id = "crypto-wallet-verification"
+type = "crypto-asset"
+family = "wallet"
+display = "crypto-asset/wallet"
+rubric = "Crypto wallet / asset-account verification lures demanding a code or KYC (Trust Wallet, MetaMask, suspended-wallet threats). Subject pairs wallet/account language with suspension or verification threats."
+bucket = "crypto"
+description = "Wallet / asset access verification lures targeting crypto holders"
+action = "quarantine"
+priority = 31
+acceptance = [1014, 1110, 4874, 7576]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(unauthorized (access|transaction)|wallet\w* (was|has been) suspend|wallet\w* (is still )?pending verification|verify your wallet.{0,40}(suspend\w*|suspens\w*|kyc)|trust wallet|\bkyc\b|unverified)'
+
+[[category]]
+id = "login-alert-obfuscated"
+type = "credential-harvesting"
+family = "credential"
+display = "credential-harvesting/credential"
+rubric = "Sign-in alerts whose subject uses stylized or obfuscated brand text (math/lookalike characters). subject_math_stylized is true and the subject reads as a login/security alert."
+bucket = "account-security"
+description = "Login activity alerts with obfuscated / lookalike styling"
+action = "quarantine"
+priority = 31
+acceptance = [26]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = 'tried to [1li]og in'
+
+[[category]]
+id = "account-verification"
+type = "credential-harvesting"
+family = "credential"
+display = "credential-harvesting/credential"
+rubric = "Generic account verification / KYC completion lures (no brand, no wallet). Subject demands verification or identification; body mentions verification, KYC or authentication."
+bucket = "account-security"
+description = "KYC / identity verification lures impersonating service providers"
+action = "quarantine"
+priority = 31
+acceptance = [924, 990, 718]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(account verification required|urgent update required|update required|verify your account|identificatie|identify yourself)'
+
+[[category.rules]]
+field = "body_evidence"
+op = "regex"
+value = '(kyc|verif\w*|balance confirmation|corporate access|identif\w*|authentication)'
+
+[[category]]
+id = "device-access-alert"
+type = "credential-harvesting"
+family = "credential"
+display = "credential-harvesting/credential"
+rubric = "New-device / new-app access alerts on accounts. Subject announces device or app access; body continues the alert with a confirm/review link."
+bucket = "account-security"
+description = "New device access alerts"
+action = "quarantine"
+priority = 32
+acceptance = [1111, 1317]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = 'novo dispositivo'
+
+[[category]]
+id = "photos-deletion-alert"
+type = "credential-harvesting"
+family = "credential"
+display = "credential-harvesting/credential"
+rubric = "Photo/video deletion threats (Google Photos, iCloud, Facebook styles, ES/PT/EN). Subject threatens deletion of stored media or account closure."
+bucket = "account-security"
+description = "Cloud photo / video deletion and account-closure threats"
+action = "quarantine"
+priority = 31
+acceptance = [6161, 2866]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(photos and videos will be deleted|photos? will be deleted|account access is at risk|photos? (and|&) videos? deleted|account\w* (in danger of closure|will be blocked)|deleting your (account )?photos|fotos.{0,30}elimina\w*|foto\w*.{0,30}verwijderd|account misbruik)'
+
+# --- Rewards / promotions -----------------------------------------------------
+
+[[category]]
+id = "points-expiry"
+type = "banking-payment"
+family = "loyalty"
+display = "banking-payment/loyalty"
+rubric = "Loyalty / bank points expiry lures (Livelo, Bradesco, generic points). Subject or body mentions expiring points, redemption, miles or bonus programs."
+bucket = "rewards-promotions"
+description = "Loyalty / bank points expiry lures (Livelo, Bradesco and similar)"
+action = "quarantine"
+priority = 31
+min_signals = 1
+acceptance = [1, 1050, 1140, 2121]
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = '(pontos|\bps\b|resgate|beneficio autorizado|notifica[çc]\w* emitida|aten[çc]\w* itau|livelo)'
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '(livelo|milhas|pontos (expir|dispon|resgat|acumul)|pontua[çc]o)'
+
+[[category]]
+id = "prize-won"
+type = "prize-reward"
+family = "sweepstakes"
+display = "prize-reward/sweepstakes"
+rubric = "Won-prize / prize-claim lures (EN/DE/NL/ES/FR). Subject announces a won prize, gift card or award; body asks to claim, confirm or enter a code."
+bucket = "rewards-promotions"
+description = "Fake prize / giveaway winners lures (multilingual)"
+action = "quarantine"
+priority = 32
+min_signals = 1
+acceptance = [209, 1601, 413, 627]
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = '(you have won|winner|winning|gewinn\b|gewinnen|gewinner|gewinnspiel|gutschein|gutsschein|geschenkkarte|cadeaukaart|c[. ]?adeaukaart|lottery|loteria|claim code|prize|pr[ée]mio|prijs\b|congrats|glückwunsch|verlose\w*|free (gift|prize|tool|breaker|delivery|break)\b|iphone\b|paket\b|versandt\b|savings\b|miss out\b|gift\b|smaaktester|ontvang\b|congratulations|pr[äa]mie)'
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '(gewinnen|gewinnspiel|eintrittskarten|winner of|claim your winning|gutschein|geschenkkarte|cadeaukaart|complimentary|gourmet.{0,30}gift|endauslosung|urgent action required|answer & win|loyalty program|verlose\w*|probierpaket|special invitation|kostenlos\w* versand|smaaktester)'
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '^[a-z0-9]{60,}$' 
+
+[[category]]
+id = "casino-bonus"
+type = "prize-reward"
+family = "casino"
+display = "prize-reward/casino"
+rubric = "Casino / iGaming bonus, wagering and contest lures. Subject or body carries casino vocabulary: bonus, free spins, wagering, monthly contest, leaderboard."
+bucket = "rewards-promotions"
+description = "Online casino bonus / free spin lures"
+action = "quarantine"
+priority = 31
+min_signals = 1
+acceptance = [4862, 879, 6695, 8040]
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = '(casino|bonus|freispiel|einzahlung|free spins?|no deposit|win for real|play for free|\bspins?\b|wagering|monthly contest|chance to win|could be yours)'
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '(bonus|free spins?|no deposit|freispiel|einzahlung|casino|slots?\b|blackjack|roulette|jackpot|wagering|monthly contest|leaderboard|wager\b)'
+
+[[category]]
+id = "prize-winner-confirmation"
+type = "advance-fee"
+family = "prize-claim"
+display = "advance-fee/prize-claim"
+rubric = "Winner-confirmation follow-ups with numeric confirmation codes. Subject contains a confirmation code pattern or 'lucky online winner' phrasing."
+bucket = "rewards-promotions"
+description = "Lucky-winner confirmation lures with ticket codes"
+action = "quarantine"
+priority = 32
+acceptance = [237]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(confirmation-\d+|lucky online winner)'
+
+# --- Crypto -------------------------------------------------------------------
+
+[[category]]
+id = "crypto-ledger-recovery"
+type = "crypto-asset"
+family = "ledger"
+display = "crypto-asset/ledger"
+rubric = "Ledger hardware-wallet breach, data-exposure and recovery-phrase lures. Subject mentions Ledger, Connect Kit, breach or wallet security; body repeats the breach/recovery theme."
+bucket = "crypto"
+description = "Ledger hardware-wallet breach / verification lures"
+action = "quarantine"
+priority = 31
+acceptance = [4359, 2368, 4088, 4632]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(ledger|connect kit|security notice|data exposure|security incident|breach|verify your wallet)'
+
+[[category.rules]]
+field = "body_evidence"
+op = "regex"
+value = '(ledger|connect kit|unverified accounts|enhanced security|recovery phrase)'
+
+[[category]]
+id = "crypto-wallet-update"
+type = "crypto-asset"
+family = "wallet"
+display = "crypto-asset/wallet"
+rubric = "Wallet app update / KYC lures for named wallets (Trust Wallet, MetaMask). Subject names the wallet app plus update or verify language."
+bucket = "crypto"
+description = "Wallet app update / KYC lures (Trust Wallet, MetaMask)"
+action = "quarantine"
+priority = 31
+acceptance = [15, 1594]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(trust wallet|metamask|verify your wallet)'
+
+[[category.rules]]
+field = "body_evidence"
+op = "regex"
+value = '(kyc|know your customer|metamask)'
+
+[[category]]
+id = "crypto-payout-alert"
+type = "crypto-asset"
+family = "payout"
+display = "crypto-asset/payout"
+rubric = "Frozen / pending crypto payout confirmation lures (DE/FR). Subject and body describe a frozen, pending or ready payout, transfer or solde."
+bucket = "crypto"
+description = "Frozen / pending crypto payout confirmation lures (DE/FR)"
+action = "quarantine"
+priority = 31
+acceptance = [4820, 6393, 7058]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(bitcoin|btc|crypto|payout|solde|transfert|withdrawal|reimbursement|auszahlung).{0,60}(gel[ée]e?|frozen|pr[êe]t|retir[ée]|ready|pending|confirm|best[äa]tigen|bereit|awaiting)'
+
+[[category.rules]]
+field = "body_evidence"
+op = "regex"
+value = '(auszahlung|solde.{0,30}(pr[êe]t|retir[ée])|transfert.{0,50}gel[ée]e?|payout.{0,40}(ready|pending)|account\w* frozen|fonds disponibles|best[äa]tigten?|bered\b|awaiting.{0,20}confirm|guthaben|transfert.{0,50}(gel[ée]e?|validation|attente|pr[êe]t)|virement.{0,30}(confirm\w*|finalis\w*))'
+
+[[category]]
+id = "crypto-staking"
+type = "crypto-asset"
+family = "staking"
+display = "crypto-asset/staking"
+rubric = "Staking feature / airdrop lures (Lido, XLM, staked tokens). Subject announces staking, airdrop or token allocation."
+bucket = "crypto"
+description = "Staking reward lures"
+action = "quarantine"
+priority = 31
+acceptance = [1100, 135]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '\bstaking\b'
+
+# --- Financial ----------------------------------------------------------------
+
+[[category]]
+id = "investment-lure"
+type = "banking-payment"
+family = "investment"
+display = "banking-payment/investment"
+rubric = "Investment and trading get-rich lures (signals, 24h returns, diamond hands). Subject or body promises investment returns, signals or trading profits."
+bucket = "financial"
+description = "Investment proposition lures, often RE: reply chains"
+action = "flag"
+priority = 31
+acceptance = [406]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = 'investment proposition'
+
+[[category]]
+id = "bank-block-alert"
+type = "banking-payment"
+family = "bank"
+display = "banking-payment/bank"
+rubric = "Bank account suspension / blocking lures (EN/PT-BR). Subject announces a blocked or suspended account and demands confirmation."
+bucket = "financial"
+description = "Bank account suspension / blocking lures (EN/PT-BR)"
+action = "quarantine"
+priority = 31
+acceptance = [5, 544, 1074, 1126]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(account has been blocked|conta (foi|esteve|s[ée]) bloqueada|bloqueado|bloqueada|libera[çc]\w*|comunicado urgente|unblock|bbinforma|troque seus pontos)'
+
+[[category.rules]]
+field = "body_evidence"
+op = "regex"
+value = '(temporary suspension|we placed|conta.{0,40}bloque|bloqueamos|saldo bloqueado|libera[çc]\w* (de )?sua conta|unblock|restaur\w*|verify your account)'
+
+[[category]]
+id = "payment-confirmation"
+type = "banking-payment"
+family = "payment"
+display = "banking-payment/payment"
+rubric = "Payment / order confirmation lures that harvest credentials. Subject confirms a payment or order; body asks to review the transaction."
+bucket = "financial"
+description = "Payment report / confirmation lures"
+action = "quarantine"
+priority = 31
+acceptance = [77]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '\bpayment (report|successful)\b'
+
+[[category]]
+id = "advance-fee-scam"
+type = "advance-fee"
+family = "classic"
+display = "advance-fee/classic"
+rubric = "Classic 419 advance-fee lures (Nigerian beneficiary, inspection agency, mega-millions). Signals: beneficiary language, donation appeals, odd phone-number formats, 'withdraw within 24 hours'."
+bucket = "financial"
+description = "Classic 419 advance-fee lures (legacy Nigerian, inspection agency, mega millions)"
+action = "quarantine"
+priority = 31
+min_signals = 1
+acceptance = [136, 70, 184]
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = '(dear valued beneficiary|donation|beneficiary|bitcoin.{0,30}(address|transfer)|your\.transaction|officer-in-charge|united nations inspection)'
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '(half-hidden|deserted moor|burn out in 24 hours|24 hours (to )?(withdraw|claim)|\+?1[0-9],[0-9]{3}\$|us\$[0-9]{2,}|million (pounds|dollars)|\$\d{6,}|\b[1-9][0-9]{1,2}(,[0-9]{3}){2,}\b|billion (pounds|dollars)|billionaire|genuine need for an investment|philanthropist|selected.{0,80}(donation|prize|award)|beneficiary|withdrawals? are now available|eligible client to begin|priority claim|ready for processing|substantial amount|united nations inspection|officer-in-charge|inspection agency|fund projects through loan|donation|mega millions|business investment proposal|commission to brokers)'
+
+[[category]]
+id = "bank-unblock-alert"
+type = "banking-payment"
+family = "bank"
+display = "banking-payment/bank"
+rubric = "Bank unblock / internet banking lures (PT-BR). Subject asks to unblock the account or access internet banking."
+bucket = "financial"
+description = "Bank unblock / internet banking lures (PT-BR)"
+action = "quarantine"
+priority = 31
+acceptance = [545, 613]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(desbloqueie s[eu][ea]|internet banking|temporariamente bloqueada)'
+
+[[category]]
+id = "credit-consolidation-offer"
+type = "banking-payment"
+family = "lending"
+display = "banking-payment/lending"
+rubric = "Credit consolidation / pre-approved credit offers. Subject and body combine credit language with pre-approval or offer framing."
+bucket = "financial"
+description = "Loan / credit consolidation offers (FR)"
+action = "quarantine"
+priority = 31
+acceptance = [8113, 8258, 8282]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(rachat de cr[ée]dits?|regroupez vos cr[ée]dits?|mensualit[ée]s)'
+
+[[category.rules]]
+field = "body_evidence"
+op = "regex"
+value = '(rachat de cr[ée]dits?|mensualit[ée]s|cr[ée]dits? d)'
+
+# --- Logistics ----------------------------------------------------------------
+
+[[category]]
+id = "customs-package-hold"
+type = "government-legal"
+family = "customs"
+display = "government-legal/customs"
+rubric = "Customs hold / package clearance lures (PT-BR, EN). Subject announces a package blocked at customs or pending clearance."
+bucket = "logistics"
+description = "Customs hold / package release lures"
+action = "quarantine"
+priority = 31
+acceptance = [3612]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(pedido foi bloqueado pela fiscaliza|package.{0,40}(release|clearance|pending)|customs.{0,30}(clearance|release))'
+
+[[category]]
+id = "import-tax-notice"
+type = "government-legal"
+family = "customs"
+display = "government-legal/customs"
+rubric = "Import tax / Correios payment lures (PT-BR). Subject mentions a taxed package, duty payment or pending payment at the post office."
+bucket = "logistics"
+description = "Import tax / customs fee payment lures (Correios style)"
+action = "quarantine"
+priority = 30
+acceptance = [3769, 3793, 4178]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(taxa de importacao|pedido foi taxado|alfandeg|encomenda|pagamento pendente)'
+
+[[category.rules]]
+field = "body_evidence"
+op = "regex"
+value = '(alfandega|taxas? obrigat|pedido foi bloqueado|correios|encomenda.{0,40}retid|pagamento pendente)'
+
+# --- Government / legal ---------------------------------------------------------
+
+[[category]]
+id = "cpf-tax-notice"
+type = "government-legal"
+family = "tax"
+display = "government-legal/tax"
+rubric = "CPF-linked tax irregularity notices (Receita Federal, PT-BR). Subject names a CPF, tax account or irregularity with a protocol number."
+bucket = "government-legal"
+description = "Brazilian Receita Federal / CPF irregularity lures"
+action = "quarantine"
+priority = 31
+acceptance = [4923, 5260, 5769, 5904]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(cpf|cadastro de pessoa fisic|pessoa fisica|divida ativa|dívida ativa|documento comprometido)'
+
+[[category.rules]]
+field = "body_evidence"
+op = "regex"
+value = '(notifica[çc][a-z]* de cpf|receita federal|minist[ée]rio da fazenda|penden[çc]ia|irregularidade|cadastro de pessoa fisic)'
+
+[[category]]
+id = "cnh-suspension"
+type = "government-legal"
+family = "cnh"
+display = "government-legal/cnh"
+rubric = "Driver-license (CNH) fine / suspension lures (DETRAN style). Subject mentions CNH, traffic fine or suspension; body continues the DETRAN frame."
+bucket = "government-legal"
+description = "Driver license (CNH) fine / suspension lures (DETRAN style)"
+action = "quarantine"
+priority = 31
+acceptance = [4368, 4582, 4760, 5156, 5903]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(cnh|multa de trans\w*|multa.{0,10}tr[âa]nsit|detran|infra[çc]\w*)'
+
+[[category.rules]]
+field = "body_evidence"
+op = "regex"
+value = '(cnh|detran|transi[çc]o|multa|infra[çc]\w*)'
+
+[[category]]
+id = "fbi-letter"
+type = "advance-fee"
+family = "fbi-letter"
+display = "advance-fee/fbi-letter"
+rubric = "FBI / federal agency letter lures impersonating official correspondence. Subject reads as a federal letter or warning with case/protocol markers."
+bucket = "government-legal"
+description = "FBI / federal agency letter lures"
+action = "quarantine"
+priority = 32
+acceptance = [119]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = 'federal bureau of investigation'
+
+[[category]]
+id = "prosecution-notification"
+type = "government-legal"
+family = "prosecution"
+display = "government-legal/prosecution"
+rubric = "German prosecution / Anklageschreiben lures. Subject contains Anklageschreiben or prosecution-letter phrasing."
+bucket = "government-legal"
+description = "German prosecution / Anklageschreiben lures"
+action = "quarantine"
+priority = 31
+acceptance = [886]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = 'anklageschreiben'
+
+# --- Commerce -------------------------------------------------------------------
+
+[[category]]
+id = "survey-reward-spam"
+type = "prize-reward"
+family = "survey"
+display = "prize-reward/survey"
+rubric = "Marketplace shopping-experience survey lures (Temu style, prize-attached surveys). Subject asks to rate the shopping experience, usually with a prize hook."
+bucket = "commerce-spam"
+description = "Temu / shopping experience survey lures"
+action = "flag"
+priority = 31
+acceptance = [2417]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = 'rate your shopping experience'
+
+[[category]]
+id = "discount-code-spam"
+type = "bulk-commercial"
+family = "discount"
+display = "bulk-commercial/discount"
+rubric = "Discount / promo code blast spam with brand-adjacent framing. Subject carries discount-code or promo language."
+bucket = "commerce-spam"
+description = "Discount / coupon code lures"
+action = "flag"
+priority = 31
+acceptance = [601, 746]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(discount code|saving pass|coupon code|vouch\w*|rebate|promocional)'
+
+[[category]]
+id = "wholesale-spam"
+type = "bulk-commercial"
+family = "wholesale"
+display = "bulk-commercial/wholesale"
+rubric = "Wholesale supplier / dropshipping outreach spam. Subject offers wholesale or supplier pricing."
+bucket = "commerce-spam"
+description = "Wholesale B2B lures"
+action = "flag"
+priority = 31
+acceptance = [1613, 1697]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = 'wholesale'
+
+# --- Round-5 new subtypes --------------------------------------------------------
+
+[[category]]
+id = "antivirus-renewal"
+type = "bulk-commercial"
+family = "software"
+display = "bulk-commercial/software"
+rubric = "Antivirus / security-suite renewal and expiry lures. Subject mentions a protection expiry or renewal deadline."
+bucket = "direct-marketing"
+description = "Antivirus / protection subscription renewal lures (McAfee style, incl. ics receipts)"
+action = "quarantine"
+priority = 31
+acceptance = [5081, 6121, 6544]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(mcafee|avast|norton|bitdefender|antivirus|total protection|schutz|abonnement).{0,50}(expir|abgelaufen|abläuft|verlängern|verlaengern|renew|lockout|billing|final notice|ended|off now)|(billing|subscription|payment).{0,30}(error|lockout)|receipt\w*.{0,40}status confirmed|(norton|mcafee|avast|bitdefender).{0,40}(invoice|order confirmation)|protection expires'
+
+[[category.rules]]
+field = "body_evidence"
+op = "regex"
+value = '(mcafee|antivirus|renew\w*|subscription|membership|expir\w*|protection|billing|lockout|abgelaufen|erneuern|schutz\w*|unsubscribe|invoice)'
+
+[[category]]
+id = "cloud-storage-upgrade"
+type = "bulk-commercial"
+family = "storage"
+display = "bulk-commercial/storage"
+rubric = "Cloud storage full / upgrade lures (Google, iCloud, OneDrive). Subject threatens a full storage quota or asks for an upgrade."
+bucket = "direct-marketing"
+description = "Cloud storage full / files-deleted lures"
+action = "quarantine"
+priority = 31
+acceptance = [2166, 8553]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = '(storage|speicher).{0,40}(upgrade|belegt|full|limit|vol\b|space|risk)|upgrade.{0,30}storage|photos and videos.{0,60}(at risk|risk|limit|full|upgrade|space)|almacenamiento|archivos.{0,40}elimina|bestanden.{0,30}(gewist|verwijderd)|google drive|icloud|onedrive'
+
+[[category]]
+id = "dating-sweep-spam"
+type = "bulk-commercial"
+family = "adult-dating"
+display = "bulk-commercial/adult-dating"
+rubric = "Adult dating and sweep-style personal lures (fake profiles, 'message from X'). Subject carries personal/contact/sweep framing."
+bucket = "adult-dating"
+description = "Dating / romance sweep lures (EN, NL, DE, IT)"
+action = "quarantine"
+priority = 31
+acceptance = [121, 175, 5059]
+
+[[category.rules]]
+field = "subject"
+op = "regex"
+value = "(old dude|perfect matches|single women|beautiful women|hot (girl|women)|hookup|get sex|sex chat|u[ck]rainian girl|girl that loves|probeer even|slaapkamer|foto'\\w* leuk|video.{0,20}leuk|alleenstaande|naakt\\w*|neuk\\w*|date avontuur|flirt\\w*|ukrainisch\\w*|in deiner nähe|frauen.{0,20}nähe|übereinstimmung|heisse russische|bräute|erotik|kennenzulernen|messaggio privato|ragazza|bella (italiana|ucraina)|sexm\\w*|seks\\w*|nachricht f[üu]r dich|hat dir eine nachricht|versucht.{0,20}zu kontaktieren|sophia|would like to meet you|new friend request|dream love|traumliebe|frechem|ukranisch|oekraïense meisjes|geniet van daten|filles russes|ladies are waiting|quota limit|singles near you|kind of singles|sexy russian|lustigen dates)"
+
+# --- Direct marketing / product health (round-5 family) ---------------------------
+
+[[category]]
+id = "direct-marketing-spam"
+type = "bulk-commercial"
+family = "direct-marketing"
+display = "bulk-commercial/direct-marketing"
+rubric = "Legitimate-style direct marketing that the corpus treats as promotional spam. Subject has a promo word; body carries an unsubscribe / marketing marker and multiple links."
+bucket = "direct-marketing"
+description = "Product / service promotional spam (health, finance tips, utilities, offers)"
+action = "flag"
+priority = 29
+min_signals = 3
+acceptance = [213, 7909, 4076]
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = '(sale\b|deal\b|save |free |offer\b|promo\b|discount|quote\b|membership|nail\b|gift\b|channel|ritual|weight\w*|gewicht|abnehm\w*|diet\b|lose |pain\b|sleep\b|winter\b|screen\w*|cotação|anana|cushion|knee\b|heater\b|title fraud|fraud\b|climax\b|erigiert|eingesprühen|aphrodisiak|prognose|rezept\b|lbs\b|energy\b|timeshare|cancellation|not mehr verfügbar|abnehmen|noodpakket|anwb|collection\b|válid\w*|sit\b|suffer|peni\w*|rekordzeit|gr[öo]sser|clinician|progress|repellent|support\b|posture|spine|ergonomic|align\w*|get_?rid|please verify|perte de poids|amaigrissement|hdtv|antenna|medicare|keto\w*)'
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '(unsubscr\w*|d[ée]sabonn\w*|k[üu]ndigen|opt-out|remove yourself|do not wish|nicht mehr erhalten|stop these|stop receiving|verify your email|aarp\b|marketing company|terms and conditions|juego de herramientas|tool set)'
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '(offer(?!ing)|order\w*|purchas\w*|shipping|discount\w*|coupon\w*|sale\b|complimentary|guarantee|satisfaction|stream\b|weight\w*|tabela promocional|testimonials?|success stories|miracle\b|ergonomic|power bill|click here to see)'
+
+[[category.signals]]
+field = "url_count"
+op = "gt"
+value = 1
+
+# --- Technique tiers --------------------------------------------------------------
+
+[[category]]
+id = "attachment-led"
+type = "malware-attachment"
+family = "attachment"
+display = "malware-attachment/attachment"
+rubric = "Lures whose main bait is a suspicious attachment (office docs, invoices, PDFs with macros). Attachment name/type or size signals the category; body may be thin."
+bucket = "technique"
+description = "Lure carried by attachment (ics/csv/xlsx/zip/pdf) with matching body"
+action = "quarantine"
+priority = 15
+acceptance = [57]
+
+[[category.rules]]
+field = "attachments"
+op = "extension_in"
+value = ["ics", "csv", "xlsx", "zip", "pdf"]
+
+[[category.rules]]
+field = "body_evidence"
+op = "regex"
+value = '(besparen|bespaar|energie|recovery\b|restore your|logistics|tracking\b|antivirus|verify\b|taxa alfandegaria|pendencia fiscal|bloqueado pela fiscaliza|security incident|incident report|renewal\b|mcafee|fatura|pontos|\bps\b|resgat\w*|gutschein|bonus.{0,30}code)'
+
+[[category]]
+id = "stylized-unicode-subject"
+type = "bulk-commercial"
+family = "unicode-obfuscation"
+display = "bulk-commercial/unicode-obfuscation"
+rubric = "Subjects using math or lookalike unicode to evade filters. subject_math_stylized is the defining signal."
+bucket = "technique"
+description = "Subjects disguising ordinary words with math-alphanumerics / stylized unicode"
+action = "quarantine"
+priority = 27
+acceptance = [2978, 1218]
+
+[[category.rules]]
+field = "subject_math_stylized"
+op = "eq"
+value = true
+
+# --- Residual families (round-5 extended) ----------------------------------------
+
+[[category]]
+id = "account-security-residual"
+type = "credential-harvesting"
+family = "residual"
+display = "credential-harvesting/residual"
+confidence = "low"
+rubric = "Residual account-security lures that miss the specific subtypes. Subject or body pairs account language with a security threat."
+bucket = "account-security"
+description = "Residual account-security lures"
+action = "quarantine"
+priority = 26
+min_signals = 1
+acceptance = []
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = '(account|login|password|verification|verify|security|unusual|suspicious|device|blocked|bloqueamos|acesso suspeito|protocolo|sicherheits-pin|sicherheit\w*pin)'
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '(account|login|password|verify|verification|security|suspended|unauthorized|credential|bloqueamos|acesso suspeito|protocolo|sicherheits-pin|sicherheit\w*pin)'
+
+[[category]]
+id = "crypto-residual"
+type = "crypto-asset"
+family = "residual"
+display = "crypto-asset/residual"
+confidence = "low"
+rubric = "Residual crypto lures (airdrops, staking threads, get-rich, community rewards). Subject or body carries crypto vocabulary without a specific subtype."
+bucket = "crypto"
+description = "Residual crypto lures (airdrops, staking threads, get-rich, payouts)"
+action = "quarantine"
+priority = 26
+min_signals = 2
+acceptance = []
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = '\bsteth\b'
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = '(airdrop|\bsteth\b|crypto|bitcoin|btc\b|metamask|ledger|wallet\b|staking|usdt|ethereum|token|claim\b|richt\b|reich\b|verdien\w*|million\b|bankangestellt|diamants|investissement|alerte|transaction|order\b|tether|honorary awards?|recognition|contributions|something special|rewards?\b)'
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '(\bsteth\b|bitcoin|btc\b|crypto|metamask|ledger|wallet|staking|usdt|tether|reich\b|invest\w*|diamant|or 2026|actions or|transaction|withdrawal|signature validation|three-step|tokens are being allocated|invoice|transaction|tokens are ready|decentraliz\w*|crypto community|grass\b|rewarded for the internet|vip platinum|claim period|allocation of)'
+
+[[category]]
+id = "financial-residual"
+type = "banking-payment"
+family = "residual"
+display = "banking-payment/residual"
+confidence = "low"
+rubric = "Residual financial lures (banks, insurance, energy bills, warranty, IRS-style debt). Subject or body carries financial vocabulary without a specific subtype."
+bucket = "financial"
+description = "Residual financial lures (banks, insurance, energy, warranty, loan offers)"
+action = "flag"
+priority = 30
+min_signals = 2
+acceptance = []
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = '(bank|payment|invoice|transfer|beneficiary|investment|loan|warranty|car insurance|home insurance|insurance claim|appliance insurance|protection|premium|coverage|mortgage|refinance|bradesco|banco\b|conta principal|funds|hacked|energie|energy\b|stroom|tarief|bespaar|geprobeerd|u te bereiken|reageer|energielaanbieder|couid|few minutes|billing|change request|details change|notifica\w* bradesco|vérification|sécurit|compte\b|activit|crédit\w*|prêt\b|travaux|financ\w*|time is money|aide\b|irs debt|protect your home|home repair|home warranty|discounted pricing|plekken.{0,20}gemeente|payment details|update your payment|abonnement|mensalidade|reajustado|notredame|proposta exclusiva|plano de sa|transa\w*|erinnerung|heute\b|loans\b|allocation|assinar urgente|documento cliente)'
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '(bank|payment|invoice|transfer|beneficiary|investment|loan|warranty|insurance|protection|premium|appliance insurance|allocation|coverage|besparen|korting|tarief|energie|energy bill|aanbieder|vergelijk|tarieven|interest|funds|hacked|bradesco|banco|vérification|sécurit|activit|cr[ée]dits?|travaux|financ\w*|benefit\w*|credit card|refinance|mortgage|aides?\b|factures?|couid|few minutes|hundreds|pyramid it|do-not-reply|bespaar|batterij|mensalidade|reajustado|notredame|plano de sa|erinnerung|loans\b)'
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = '(couid|few minutes|billing|change request|details change|notifica\w* bradesco|hacked|account.{0,20}(hacked|compromised))'
+
+[[category.signals]]
+field = "body_encoded"
+op = "eq"
+value = true
+
+[[category]]
+id = "logistics-residual"
+type = "logistics-commerce"
+family = "shipping"
+display = "logistics-commerce/shipping"
+confidence = "low"
+rubric = "Residual logistics / delivery lures (EN, DE, NL, IT, PT-BR). Subject or body describes a package, delivery, COD or tracking event."
+bucket = "logistics"
+description = "Residual logistics / delivery lures (EN, DE, NL, IT, PT-BR)"
+action = "flag"
+priority = 26
+min_signals = 1
+acceptance = []
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = '(package|delivery|correios|customs|import|taxa\b|shipment|pedido|tracking|bestellung|paket|zustellung|auslieferung|lieferung|bezorging|aflevering|levering|tracciamento|consegna|pacco|spedizione|bestelling|verzenden|parcel|livraison|colis)'
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '((the|my|your|unser) (package|paket)|package (is|has|arrived)|delivery|correios|customs|taxa\b|shipment|pedido|tracking|bestellung|paket|zustellung|auslieferung|levering|pakket|consegna|pacco|livraison|colis|manqu)'
+
+
+[[category.signals]]
+field = "body_encoded"
+op = "eq"
+value = true
+
+[[category]]
+id = "government-legal-residual"
+type = "government-legal"
+family = "residual"
+display = "government-legal/residual"
+confidence = "low"
+rubric = "Residual government / legal lures missing the specific agency subtypes. Subject or body uses official/legal framing."
+bucket = "government-legal"
+description = "Residual government / legal lures"
+action = "quarantine"
+priority = 26
+min_signals = 1
+acceptance = []
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = '(cnh|detran|receita|federal|bureau|investigation|prosecution|anklage|court|police)'
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '(cnh|detran|receita|federal|bureau|investigation|prosecution|anklage|court|police)'
+
+[[category]]
+id = "rewards-promotions-residual"
+type = "prize-reward"
+family = "residual"
+display = "prize-reward/residual"
+confidence = "low"
+rubric = "Residual prize / reward / contest lures missing the specific subtypes. Subject or body carries reward, contest or giveaway language."
+bucket = "rewards-promotions"
+description = "Residual rewards / survey / promotion lures"
+action = "flag"
+priority = 26
+min_signals = 1
+acceptance = []
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = '(won|winner|prize|bonus|points|pontos|expiry|reward(?!s)|rewards\b|black friday|gift|casino|gewinn|confirmation|rabatt|angebot\b|bon d.achat|voucher|leclerc)'
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '(you won\b|have won\b|won (the|your|a)|winner|prize|bonus|points|pontos|expiry|free gift\b|gift basket|gourmet gift|loyalty gift|casino|gewinn|confirmation required|confirm\w* (your|se)\b|enquete|enqu\w*|survey|onderzoek|gratis\b|rewards\b|eintrittskarten|vergleich|bon d.achat|voucher)'
+
+
+[[category]]
+id = "commerce-spam-residual"
+type = "logistics-commerce"
+family = "commerce"
+display = "logistics-commerce/commerce"
+confidence = "low"
+rubric = "Residual commerce / shopping spam (temu-style offers, surveys, packages) missing the specific subtypes."
+bucket = "commerce-spam"
+description = "Residual commerce / survey lures"
+action = "flag"
+priority = 26
+min_signals = 1
+acceptance = []
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = '(temu|survey|discount|coupon|wholesale|saving|offer\b|deal\b|shopping|collection\b|gratis\b|to win\b|enter to win|bestellung wurde versandt|paket erhalten|smaaktester|ontvang\b|abonnement|mensalidade|off now)'
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '(temu|survey|discount|coupon|wholesale|saving|offer\b|deal\b|shopping|questionnaire|enquete|enqu\w*|language\b|sprache|limited\b|tool set\b|gewinn\w*|belohnung|smaaktester|proef\w*|enter to win|test de|abonnement|mensalidade|d[ée]sabonn)'
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = '(package|pending|delivery|parcels?|noodpakket)'
+
+# --- Catch-all (round-5: unmatched < 10% goal) ------------------------------------
+
+
+[[category]]
+id = "dutch-energy"
+type = "bulk-commercial"
+family = "dutch-energy"
+display = "bulk-commercial/dutch-energy"
+bucket = "bulk-commercial"
+description = "Dutch energy switching / offer campaigns (wilsverklaring, akkoord, aanmelding)"
+action = "quarantine"
+priority = 31
+min_signals = 1
+rubric = "Matches: Dutch energy-market offer language (energie/stroom/gas plus wilsverklaring/akkoord/aanmelding/aanbieding). Reject: real bill or provider status notices from provider domains."
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '(wilsverklaring|aanmelding|akkoord|energieleverancier|stroomtarief|gastarief)'
+
+[[category.signals]]
+field = "subject"
+op = "regex"
+value = '(energie|stroom|gas)(lever|tarief|aanbieding|akkoord)'
+
+[[category]]
+id = "encoded-body"
+type = "bulk-commercial"
+family = "encoded"
+display = "bulk-commercial/encoded"
+bucket = "bulk-commercial"
+description = "Bodies that are opaque encoded blobs with no readable text (base64 / quoted-printable dumps)"
+action = "quarantine"
+priority = 24
+rubric = "Matches: body flagged as encoded blob. Reject: legitimate base64 attachments whose text part is readable."
+
+[[category.rules]]
+field = "body_encoded"
+op = "eq"
+value = true
+
+[[category]]
+id = "ics-led"
+type = "malware-attachment"
+family = "ics"
+display = "malware-attachment/ics"
+bucket = "malware-attachment"
+description = "Calendar (ICS) attachment lures that install malware or exfiltrate on open"
+action = "quarantine"
+priority = 16
+rubric = "Matches: any ICS attachment. Reject: no calendar attachment present."
+
+[[category.rules]]
+field = "attachments"
+op = "extension_in"
+value = ["ics"]
+
+[[category]]
+id = "mobileconfig-led"
+type = "malware-attachment"
+family = "mobileconfig"
+display = "malware-attachment/mobileconfig"
+bucket = "malware-attachment"
+description = "iOS configuration profile (mobileconfig) attachment lures"
+action = "quarantine"
+priority = 16
+rubric = "Matches: any mobileconfig attachment. Reject: no profile attachment present."
+
+[[category.rules]]
+field = "attachments"
+op = "extension_in"
+value = ["mobileconfig"]
+
+
+[[category]]
+id = "sextortion"
+type = "threat-extortion"
+family = "sextortion"
+display = "threat-extortion/sextortion"
+bucket = "threat-extortion"
+description = "Sextortion: threats to publish compromising content unless payment is made"
+action = "quarantine"
+priority = 32
+min_signals = 2
+rubric = "Matches: two or more of (compromising/nude content language, publish/send-to-contacts threat, payment-for-silence). Reject: a single innocuous keyword elsewhere."
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = "(nude|naked|compromising|embarrassing|explicit) (video|photos?|images?|content|pics?)"
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = "(publish|post|release|send|share).{0,80}(contacts|friends|family|coworkers|everyone)"
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = "(pay|bitcoin|btc|xmr|monero).{0,80}(silence|delete|not (share|publish|release))|keep (quiet|silent)"
+
+[[category]]
+id = "bec"
+type = "banking-payment"
+family = "business-email-compromise"
+display = "banking-payment/bec"
+rubric = "Business email compromise: a trusted-domain or reply-to mismatch lures payment-instruction changes with no links. Live-mail slot — no corpus acceptance samples."
+bucket = "financial-business"
+description = "Business email compromise (payment-instruction lures)"
+action = "quarantine"
+priority = 25
+min_signals = 1
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '(wire transfer|wire payment|bank transfer|bank details?|account details?).{0,100}(authoriz|approv|confirm|update|chang\w+|instruct)'
+
+[[category]]
+id = "unclassified-spam"
+type = "bulk-commercial"
+family = "catch-all"
+display = "bulk-commercial/catch-all"
+rubric = "Catch-all for corpus emails that are spam but match no specific category. Low-priority fallback; only wins when nothing else does."
+bucket = "catch-all"
+description = "Broad promotional spam not matching a specific subtype"
+action = "flag"
+priority = 5
+min_signals = 2
+acceptance = [24, 53]
+
+[[category.signals]]
+field = "url_count"
+op = "gt"
+value = 0
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '(resgate (agora|seus)|unclaimed|besparen|bespaar|gutschein|coupon code|spins? claim|prize code|free (gifts?|prize|break|tool)\b)'
+
+[[category.signals]]
+field = "body_evidence"
+op = "regex"
+value = '^[\[\]<>_ \sA-Za-z0-9]{0,119}$'

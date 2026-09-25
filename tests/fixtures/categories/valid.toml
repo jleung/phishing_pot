@@ -2,6 +2,7 @@ schema_version = 1
 
 [[category]]
 id = "login-update-lure"
+type = "credential-harvesting"
 bucket = "login-update-lure"
 description = "Account update lures with a credential-harvest link"
 action = "quarantine"
@@ -15,6 +16,7 @@ value = "(?i)account update"
 
 [[category]]
 id = "pdf-delivery"
+type = "malware-attachment"
 bucket = "pdf-delivery"
 description = "Documents delivered as file attachments"
 action = "quarantine"

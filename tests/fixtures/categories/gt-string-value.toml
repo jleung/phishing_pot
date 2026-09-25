@@ -1,0 +1,15 @@
+schema_version = 1
+
+[[category]]
+id = "string-gt"
+type = "bulk-commercial"
+bucket = "string-gt"
+description = "Invalid: gt over a non-integer value"
+action = "flag"
+priority = 10
+acceptance = []
+
+[[category.rules]]
+field = "url_count"
+op = "gt"
+value = "0"

@@ -79,6 +79,14 @@ class FeatureJson(TypedDict):
     dmarc_result: str
     header_encoding_anomaly: bool
     quality_flags: list[str]
+    subject_math_stylized: bool
+    body_encoded: bool
+    url_hosts: list[str]
+    url_host_classes: list[str]
+    salutation: str
+    urgency: int
+    brand_claims: list[str]
+    body_math_stylized: bool
     provenance: ProvenanceJson
 
 
@@ -210,6 +218,14 @@ class FeatureRecord:
     header_encoding_anomaly: bool
     quality_flags: tuple[str, ...]
     provenance: Provenance
+    subject_math_stylized: bool
+    body_encoded: bool
+    url_hosts: tuple[str, ...] = ()
+    url_host_classes: tuple[str, ...] = ()
+    salutation: str = "none"
+    urgency: int = 0
+    brand_claims: tuple[str, ...] = ()
+    body_math_stylized: bool = False
 
     def as_json(self) -> FeatureJson:
         """Return the feature record's stable, content-safe JSON shape."""
@@ -239,4 +255,12 @@ class FeatureRecord:
             header_encoding_anomaly=self.header_encoding_anomaly,
             quality_flags=list(self.quality_flags),
             provenance=self.provenance.as_json(),
+            subject_math_stylized=self.subject_math_stylized,
+            body_encoded=self.body_encoded,
+            url_hosts=list(self.url_hosts),
+            url_host_classes=list(self.url_host_classes),
+            salutation=self.salutation,
+            urgency=self.urgency,
+            brand_claims=list(self.brand_claims),
+            body_math_stylized=self.body_math_stylized,
         )

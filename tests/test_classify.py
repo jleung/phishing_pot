@@ -38,6 +38,8 @@ def _feature(
     dkim_result: str = "none",
     dmarc_result: str = "none",
     header_encoding_anomaly: bool = False,
+    subject_math_stylized: bool = False,
+    body_encoded: bool = False,
 ) -> FeatureRecord:
     source = SourceRecord(SampleId(sample_id), f"sample-{sample_id}.eml", 0, "fixture")
     return FeatureRecord(
@@ -71,6 +73,8 @@ def _feature(
         dkim_result=dkim_result,
         dmarc_result=dmarc_result,
         header_encoding_anomaly=header_encoding_anomaly,
+        subject_math_stylized=subject_math_stylized,
+        body_encoded=body_encoded,
         quality_flags=quality_flags,
         provenance=Provenance("test-commit", "digest", "model"),
     )
@@ -80,7 +84,7 @@ def test_forwarding_prefixes_do_not_hide_prize_subjects() -> None:
     # Given: the live taxonomy and a prize subject with an RE:/address prefix,
     # plus a purely stylized-unicode subject with no intent wording.
     registry = load_registry(
-        Path(__file__).parent.parent / "categories" / "taxonomy-v3.toml"
+        Path(__file__).parent.parent / "categories" / "taxonomy-v5.toml"
     )
     forwarded = classify_record(
         _feature(
@@ -95,6 +99,7 @@ def test_forwarding_prefixes_do_not_hide_prize_subjects() -> None:
             # Deliberate: the subject is a stylized unicode lure sample; its
             # non-latin characters are the signal under test.
             subject="#𝘿𝙄𝙔: 𝙃𝙊𝙒 𝙏𝙊 𝙏𝘼𝙆𝙀 𝙔𝙀𝘼𝙍𝙎 𝙊𝙁𝙁 𝙔𝙊𝙐𝙍 𝙉𝙀𝘾𝙆'𝙎 𝘼𝙋𝙋𝙀𝘼𝙍𝘼𝙉𝘾𝙀",  # noqa: RUF001
+            subject_math_stylized=True,
         ),
         registry,
     )
@@ -350,6 +355,43 @@ def test_priority_tie_resolves_to_needs_review() -> None:
     assert {c.category for c in decision.rejected_candidates} == {"alpha", "beta"}
 
 
+def test_more_matched_rules_wins_a_priority_tie() -> None:
+    # Given: two equal-priority rule-based categories that both match.
+    first = Category(
+        id="alpha",
+        bucket="alpha",
+        description="d",
+        action="a1",
+        priority=10,
+        rules=(
+            Rule(field="body_evidence", op="regex", value="(?i)account"),
+            Rule(field="body_evidence", op="regex", value="(?i)update"),
+        ),
+        signals=(),
+        min_signals=0,
+        acceptance=(),
+    )
+    second = Category(
+        id="beta",
+        bucket="beta",
+        description="d",
+        action="a2",
+        priority=10,
+        rules=(Rule(field="body_evidence", op="regex", value="(?i)account"),),
+        signals=(),
+        min_signals=0,
+        acceptance=(),
+    )
+    record = _feature(body="account update")
+
+    # When: both categories match with equal priority.
+    decision = classify_record(record, _registry(first, second))
+
+    # Then: the category with more matched rules wins the tie.
+    assert decision.decision == "alpha"
+    assert [c.category for c in decision.rejected_candidates] == ["beta"]
+
+
 def test_eq_in_and_extension_ops_match_feature_fields() -> None:
     # Given: categories exercising eq, in, and extension_in ops.
     exact = Category(
@@ -402,6 +444,32 @@ def test_eq_in_and_extension_ops_match_feature_fields() -> None:
     assert eq_decision.decision == "exact-domain"
     assert in_decision.decision == "malformed-mail"
     assert ext_decision.decision == "exe-attachment"
+
+
+def test_gt_op_matches_integer_field_above_threshold() -> None:
+    # Given: a category requiring at least one URL.
+    category = Category(
+        id="url-bearing",
+        bucket="url-bearing",
+        description="d",
+        action="a",
+        priority=30,
+        rules=(Rule(field="url_count", op="gt", value=0),),
+        signals=(),
+        min_signals=0,
+        acceptance=(),
+    )
+    registry = _registry(category)
+
+    # When: one record carries a URL and one does not.
+    linked = classify_record(_feature(url_count=2), registry)
+    bare = classify_record(_feature(url_count=0), registry)
+
+    # Then: only the URL-bearing record resolves to the category.
+    assert linked.decision == "url-bearing"
+    assert linked.matched_rules[0].matched_evidence == "2"
+    assert bare.decision == "unmatched"
+    assert bare.fallback_reason == "no_rules_matched"
 
 
 def test_serialize_decision_is_stable_sorted_jsonl() -> None:

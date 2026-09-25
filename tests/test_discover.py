@@ -46,6 +46,8 @@ def _feature(
         dkim_result="none",
         dmarc_result="none",
         header_encoding_anomaly=False,
+        subject_math_stylized=False,
+        body_encoded=False,
         quality_flags=(),
         provenance=Provenance("test-commit", "digest", "model"),
     )

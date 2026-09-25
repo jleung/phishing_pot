@@ -3,7 +3,7 @@
 import json
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Final
 
@@ -14,6 +14,7 @@ SUBJECT_WEIGHT: Final = 3.0
 DOMAIN_WEIGHT: Final = 2.0
 ATTACHMENT_WEIGHT: Final = 3.0
 LANGUAGE_WEIGHT: Final = 1.0
+SUBCLUSTER_TRIGGER: Final = 30
 TOP_TOKEN_LIMIT: Final = 15
 EXAMPLE_SUBJECT_LIMIT: Final = 3
 DOSSIER_SCHEMA_VERSION: Final = 1
@@ -37,6 +38,8 @@ class ClusterDossier:
     domains: tuple[TokenCount, ...]
     languages: tuple[TokenCount, ...]
     example_subjects: tuple[str, ...]
+    stratum: str = ""
+    subclusters: tuple["ClusterDossier", ...] = ()
 
 
 def discover_clusters(
@@ -44,8 +47,15 @@ def discover_clusters(
     *,
     threshold: float,
     min_cluster_size: int,
+    subcluster_threshold: float = 0.55,
+    min_subcluster_size: int = 5,
 ) -> tuple[ClusterDossier, ...]:
-    """Group unmatched records by TF-IDF similarity via deterministic seeding."""
+    """Group unmatched records by TF-IDF similarity via deterministic seeding.
+
+    Records are clustered within mechanism/language strata, host and tone tokens
+    are added to the vector, and oversized clusters are re-clustered a second
+    time so that dossiers stay under review size.
+    """
     ordered: tuple[FeatureRecord, ...] = tuple(
         sorted(records, key=lambda record: int(record.source.sample_id))
     )
@@ -56,6 +66,84 @@ def discover_clusters(
         for record in ordered
     ]
 
+    strata: dict[str, list[int]] = {}
+    for index, record in enumerate(ordered):
+        strata.setdefault(_stratum(record), []).append(index)
+
+    dossiers: list[ClusterDossier] = []
+    for stratum_name in sorted(strata):
+        stratum_indices = strata[stratum_name]
+        sub_vectors = [vectors[i] for i in stratum_indices]
+        clusters = _incremental_cluster(sub_vectors, threshold)
+        for indices in clusters:
+            if len(indices) < min_cluster_size:
+                continue
+            global_indices = [stratum_indices[i] for i in indices]
+            dossier = _dossier(ordered, global_indices, frequencies, corpus_size)
+            if len(indices) >= SUBCLUSTER_TRIGGER:
+                sub_clusters = _incremental_cluster(
+                    [sub_vectors[i] for i in indices], subcluster_threshold
+                )
+                dossier = replace(
+                    dossier,
+                    stratum=stratum_name,
+                    subclusters=tuple(
+                        _dossier(
+                            ordered,
+                            [global_indices[i] for i in members],
+                            frequencies,
+                            corpus_size,
+                        )
+                        for members in sub_clusters
+                        if len(members) >= min_subcluster_size
+                    ),
+                )
+            else:
+                dossier = replace(dossier, stratum=stratum_name)
+            dossiers.append(dossier)
+    return tuple(sorted(dossiers, key=_dossier_sort_key))
+
+
+def stability_sweep(
+    records: tuple[FeatureRecord, ...],
+    *,
+    min_cluster_size: int,
+    thresholds: tuple[float, ...] = (
+        0.60, 0.65, 0.70, 0.75, 0.80
+    ),
+) -> list[dict[str, object]]:
+    """Report clustered volume per threshold to show where clusters stabilize."""
+    results: list[dict[str, object]] = []
+    for value in thresholds:
+        dossiers = discover_clusters(
+            records, threshold=value, min_cluster_size=min_cluster_size
+        )
+        results.append(
+            {
+                "threshold": value,
+                "clustered": sum(len(d.sample_ids) for d in dossiers),
+                "clusters": len(dossiers),
+            }
+        )
+    return results
+
+
+def _stratum(record: FeatureRecord) -> str:
+    """Return the mechanism/language stratum that one record is clustered in."""
+    if record.attachments:
+        return f"attach:{record.attachments[0].extension}"
+    if record.body_encoded:
+        return "encoded"
+    if record.subject_math_stylized:
+        return "obfuscated"
+    if record.url_count > 0:
+        return "link"
+    return "plain"
+
+
+def _incremental_cluster(
+    vectors: list[dict[str, float]], threshold: float
+) -> list[list[int]]:
     clusters: list[list[int]] = []
     centroids: list[dict[str, float]] = []
     for index, vector in enumerate(vectors):
@@ -73,22 +161,17 @@ def discover_clusters(
         cluster = clusters[best_cluster]
         cluster.append(index)
         centroids[best_cluster] = _mean_vector(tuple(vectors[i] for i in cluster))
-
-    dossiers = [
-        _dossier(ordered, indices, frequencies, corpus_size)
-        for indices in clusters
-        if len(indices) >= min_cluster_size
-    ]
-    return tuple(sorted(dossiers, key=_dossier_sort_key))
+    return clusters
 
 
-def write_dossiers(
+def write_dossiers(  # noqa: PLR0913
     dossiers: tuple[ClusterDossier, ...],
     *,
     total_unmatched: int,
     output_path: Path,
     threshold: float,
     min_cluster_size: int,
+    stability: list[dict[str, object]] | None = None,
 ) -> None:
     """Write the dossier artifact as stable, newline-terminated JSON."""
     payload = {
@@ -99,6 +182,8 @@ def write_dossiers(
         "clustered": sum(len(dossier.sample_ids) for dossier in dossiers),
         "clusters": [_dossier_json(dossier) for dossier in dossiers],
     }
+    if stability is not None:
+        payload["stability"] = stability
     output_path.parent.mkdir(parents=True, exist_ok=True)
     _ = output_path.write_text(
         json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8"
@@ -113,6 +198,8 @@ def _dossier_json(dossier: ClusterDossier) -> dict[str, object]:
     return {
         "seed_sample_id": dossier.seed_sample_id,
         "sample_ids": list(dossier.sample_ids),
+        "stratum": dossier.stratum,
+        "subclusters": [_dossier_json(sub) for sub in dossier.subclusters],
         "top_tokens": [
             {"token": token.token, "weight": token.weight}
             for token in dossier.top_tokens
@@ -187,6 +274,20 @@ def _document_frequencies(
     return frequencies
 
 
+def _aux_terms(record: FeatureRecord, raw: dict[str, float]) -> None:
+    """Add host, host-class, salutation, and urgency tokens to the raw vector."""
+    for host in record.url_hosts:
+        raw[f"host2:{host}"] = raw.get(f"host2:{host}", 0.0) + DOMAIN_WEIGHT
+    for host_class in record.url_host_classes:
+        raw[f"hclass:{host_class}"] = raw.get(f"hclass:{host_class}", 0.0) + 1.0
+    if record.salutation != "none":
+        raw[f"salut:{record.salutation}"] = (
+            raw.get(f"salut:{record.salutation}", 0.0) + 1.0
+        )
+    if record.urgency:
+        raw[f"urg:{record.urgency}"] = raw.get(f"urg:{record.urgency}", 0.0) + 1.0
+
+
 def _weighted_terms(
     record: FeatureRecord, frequencies: dict[str, int], corpus_size: int
 ) -> dict[str, float]:
@@ -200,6 +301,7 @@ def _weighted_terms(
     if record.from_domain:
         token = f"domain:{record.from_domain}"
         raw[token] = raw.get(token, 0.0) + DOMAIN_WEIGHT
+    _aux_terms(record, raw)
     for attachment in record.attachments:
         if attachment.extension:
             token = f"ext:{attachment.extension}"
@@ -224,6 +326,14 @@ def _raw_terms(record: FeatureRecord) -> set[str]:
     terms.update(TOKEN_PATTERN.findall(record.body_evidence.lower()))
     if record.from_domain:
         terms.add(f"domain:{record.from_domain}")
+    for host in record.url_hosts:
+        terms.add(f"host2:{host}")
+    for host_class in record.url_host_classes:
+        terms.add(f"hclass:{host_class}")
+    if record.salutation != "none":
+        terms.add(f"salut:{record.salutation}")
+    if record.urgency:
+        terms.add(f"urg:{record.urgency}")
     for attachment in record.attachments:
         if attachment.extension:
             terms.add(f"ext:{attachment.extension}")

@@ -22,6 +22,7 @@ TEXT_FIELDS: Final = frozenset(
         "spf_result",
         "dkim_result",
         "dmarc_result",
+        "salutation",
     }
 )
 BOOL_FIELDS: Final = frozenset(
@@ -31,14 +32,39 @@ BOOL_FIELDS: Final = frozenset(
         "sender_envelope_agree",
         "header_encoding_anomaly",
         "url_host_matches_from",
+        "subject_math_stylized",
+        "body_encoded",
+        "body_math_stylized",
     }
 )
-INT_FIELDS: Final = frozenset({"url_count"})
-LIST_FIELDS: Final = frozenset({"quality_flags", "languages", "charsets"})
+INT_FIELDS: Final = frozenset({"url_count", "urgency"})
+LIST_FIELDS: Final = frozenset(
+    {
+        "quality_flags", "languages", "charsets",
+        "url_hosts", "url_host_classes", "brand_claims",
+    }
+)
+TYPE_IDS: Final = frozenset(
+    {
+        "credential-harvesting",
+        "banking-payment",
+        "advance-fee",
+        "government-legal",
+        "crypto-asset",
+        "logistics-commerce",
+        "prize-reward",
+        "bulk-commercial",
+        "malware-attachment",
+        "threat-extortion",
+    }
+)
+CONFIDENCE_IDS: Final = frozenset({"high", "low"})
 ATTACHMENT_FIELDS: Final = frozenset({"attachments"})
 TEXT_OPS: Final = frozenset({"regex", "eq", "in"})
-SCALAR_OPS: Final = frozenset({"eq"})
-SUPPORTED_OPS: Final = TEXT_OPS | frozenset({"in", "extension_in"})
+BOOL_OPS: Final = frozenset({"eq"})
+INT_OPS: Final = frozenset({"eq", "gt"})
+SUPPORTED_OPS: Final = TEXT_OPS | BOOL_OPS | INT_OPS | frozenset(
+    {"in", "extension_in"})
 RuleValue = str | bool | int | tuple[str, ...]
 
 
@@ -76,6 +102,11 @@ class Category:
     signals: tuple[Rule, ...]
     min_signals: int
     acceptance: tuple[int, ...]
+    type: str = "bulk-commercial"
+    family: str | None = None
+    display: str | None = None
+    rubric: str | None = None
+    confidence: str = "high"
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,6 +219,10 @@ def _category_from_entry(entry: object) -> Category:
             )
         )
 
+    (type_value, family_value, display_value, rubric_value, confidence_value) = (
+        _category_meta(category_id, table)
+    )
+
     return Category(
         id=category_id,
         bucket=bucket,
@@ -198,7 +233,47 @@ def _category_from_entry(entry: object) -> Category:
         signals=signals,
         min_signals=min_signals,
         acceptance=acceptance,
+        type=type_value,
+        family=family_value,
+        display=display_value,
+        rubric=rubric_value,
+        confidence=confidence_value,
     )
+
+
+def _category_meta(
+    category_id: str, table: dict[str, object]
+) -> tuple[str, str | None, str | None, str | None, str]:
+    """Parse and validate the type/family/display/rubric/confidence metadata."""
+    type_value = _string(table.get("type"), f"category {category_id} type")
+    if type_value not in TYPE_IDS:
+        raise RegistryError(
+            message=f"Category {category_id} has unsupported type: {type_value!r}"
+        )
+    family_value: str | None = None
+    if table.get("family") is not None:
+        family_value = _string(table.get("family"), f"category {category_id} family")
+        if not CATEGORY_ID_PATTERN.fullmatch(family_value):
+            raise RegistryError(
+                message=f"Category {category_id} family must be a lowercase slug"
+            )
+    display_value: str | None = None
+    if table.get("display") is not None:
+        display_value = _string(
+            table.get("display"), f"category {category_id} display"
+        )
+    rubric_value: str | None = None
+    if table.get("rubric") is not None:
+        rubric_value = _string(table.get("rubric"), f"category {category_id} rubric")
+    confidence_value = table.get("confidence", "high")
+    if confidence_value not in CONFIDENCE_IDS:
+        raise RegistryError(
+            message=(
+                f"Category {category_id} confidence must be high or low: "
+                f"{confidence_value!r}"
+            )
+        )
+    return type_value, family_value, display_value, rubric_value, str(confidence_value)
 
 
 def _rule_from_entry(category_id: str, entry: object, kind: str) -> Rule:
@@ -223,6 +298,14 @@ def _rule_from_entry(category_id: str, entry: object, kind: str) -> Rule:
 
     value = table.get("value")
     value_as_object: object = value
+    _validate_rule_value(category_id, kind, op, value)
+    _validate_op_field_fit(category_id, field, op)
+    return Rule(field=field, op=op, value=_rule_value(value_as_object))
+
+
+def _validate_rule_value(
+    category_id: str, kind: str, op: str, value: object
+) -> None:
     if op == "regex":
         if not isinstance(value, str):
             raise RegistryError(
@@ -242,6 +325,14 @@ def _rule_from_entry(category_id: str, entry: object, kind: str) -> Rule:
             raise RegistryError(
                 message=f"Category {category_id} {kind} eq op requires a scalar value"
             )
+    elif op == "gt":
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise RegistryError(
+                message=(
+                    f"Category {category_id} {kind} gt op requires "
+                    "an integer value"
+                )
+            )
     elif op in {"in", "extension_in"}:
         if not isinstance(value, list):
             raise RegistryError(
@@ -254,15 +345,14 @@ def _rule_from_entry(category_id: str, entry: object, kind: str) -> Rule:
             cast("list[object]", value), f"category {category_id} {kind} {op} value"
         )
 
-    _validate_op_field_fit(category_id, field, op)
-    return Rule(field=field, op=op, value=_rule_value(value_as_object))
-
 
 def _validate_op_field_fit(category_id: str, field: str, op: str) -> None:
     if field in TEXT_FIELDS:
         allowed_ops = TEXT_OPS
-    elif field in BOOL_FIELDS | INT_FIELDS:
-        allowed_ops = SCALAR_OPS
+    elif field in BOOL_FIELDS:
+        allowed_ops = BOOL_OPS
+    elif field in INT_FIELDS:
+        allowed_ops = INT_OPS
     elif field in LIST_FIELDS:
         allowed_ops = frozenset({"in"})
     else:

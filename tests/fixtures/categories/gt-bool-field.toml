@@ -1,0 +1,15 @@
+schema_version = 1
+
+[[category]]
+id = "bool-gt"
+type = "bulk-commercial"
+bucket = "bool-gt"
+description = "Invalid: gt over a boolean field"
+action = "flag"
+priority = 10
+acceptance = []
+
+[[category.rules]]
+field = "unicode_obfuscation"
+op = "gt"
+value = 0

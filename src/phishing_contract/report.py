@@ -53,18 +53,48 @@ class Summary:
     total: int
     counts: tuple[tuple[str, int], ...]
     bucket_counts: tuple[tuple[str, int], ...]
+    confidence_counts: tuple[tuple[str, int], ...] = ()
+    type_counts: tuple[tuple[str, int], ...] = ()
 
 
-def summarize_decisions(decisions: tuple[Decision, ...]) -> Summary:
-    """Count categories and buckets in deterministic sorted order."""
+def summarize_decisions(
+    decisions: tuple[Decision, ...],
+    registry: "CategoryRegistry | None" = None,
+) -> Summary:
+    """Count categories, buckets, types, and confidence tiers deterministically.
+
+    ``type_counts`` (top-level phish-type roots) is only produced when the
+    registry that produced the decisions is supplied.
+    """
     tally: dict[str, int] = {}
     bucket_tally: dict[str, int] = {}
+    confidence_tally: dict[str, int] = {}
+    type_tally: dict[str, int] = {}
+    types_by_category: dict[str, str] = {}
+    if registry is not None:
+        types_by_category = {c.id: c.type for c in registry.categories}
     for decision in decisions:
         tally[decision.decision] = tally.get(decision.decision, 0) + 1
         bucket_tally[decision.bucket] = bucket_tally.get(decision.bucket, 0) + 1
+        if decision.decision != "unmatched":
+            confidence_tally[decision.confidence] = (
+                confidence_tally.get(decision.confidence, 0) + 1
+            )
+        if types_by_category:
+            category_type = types_by_category.get(decision.decision)
+            if category_type is not None:
+                type_tally[category_type] = type_tally.get(category_type, 0) + 1
     counts = tuple(sorted(tally.items()))
     bucket_counts = tuple(sorted(bucket_tally.items()))
-    return Summary(total=len(decisions), counts=counts, bucket_counts=bucket_counts)
+    confidence_counts = tuple(sorted(confidence_tally.items()))
+    type_counts = tuple(sorted(type_tally.items()))
+    return Summary(
+        total=len(decisions),
+        counts=counts,
+        bucket_counts=bucket_counts,
+        confidence_counts=confidence_counts,
+        type_counts=type_counts,
+    )
 
 
 def diff_decisions(
@@ -128,6 +158,8 @@ def serialize_summary(summary: Summary) -> str:
         "total": summary.total,
         "counts": dict(summary.counts),
         "bucket_counts": dict(summary.bucket_counts),
+        "confidence_counts": dict(summary.confidence_counts),
+        "type_counts": dict(summary.type_counts),
     }
     return json.dumps(payload, sort_keys=True) + "\n"
 

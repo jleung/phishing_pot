@@ -23,11 +23,165 @@ from phishing_contract.models import (
     Provenance,
     SourceRecord,
 )
+from phishing_contract.textfold import (
+    has_math_stylization,
+    is_encoded_body,
+)
 
 URL_PATTERN = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
 EMAIL_PATTERN = re.compile(r"[\w.+-]+@[\w.-]+")
 ENCODED_WORD_PATTERN = re.compile(r"=\?[A-Za-z0-9_-]+\?[QqBb]\?")
 AUTH_MECHANISMS: Final = ("spf", "dkim", "dmarc")
+FREE_SUBDOMAIN_SUFFIXES: Final = frozenset(
+    {
+        "eu.org",
+        "uk.to",
+        "us.to",
+        "za.to",
+        "eu.com",
+        "eu.net",
+        "eu.bz",
+    }
+)
+DISPOSABLE_TLDS: Final = frozenset(
+    {
+        "tk", "ml", "ga", "cf", "gq", "top", "click", "icu",
+        "buzz", "rest", "quest", "monster",
+    }
+)
+CDN_HOST_SUFFIXES: Final = frozenset(
+    {
+        "github.io",
+        "netlify.app",
+        "vercel.app",
+        "pages.dev",
+        "s3.amazonaws.com",
+        "s3.eu-central-1.amazonaws.com",
+        "blob.core.windows.net",
+        "storage.googleapis.com",
+        "digitaloceanspaces.com",
+        "fastly.net",
+        "cloudfront.net",
+    }
+)
+BRAND_CLAIM_BRANDS: Final = {
+    "apple": ("apple.com", "icloud.com", "apple", "iphone", "ipad"),
+    "google": ("google.com", "gmail.com", "gstatic.com", "google", "gmail"),
+    "microsoft": (
+        "microsoft.com", "live.com", "office.com", "outlook.com",
+        "microsoft", "outlook",
+    ),
+    "paypal": ("paypal.com", "paypal", "sandvik"),
+    "amex": ("amex.com", "americanexpress.com", "amex", "american express"),
+    "visa": ("visa.com", "visa"),
+    "mastercard": ("mastercard.com", "mastercard"),
+    "netflix": ("netflix.com", "netflix"),
+    "amazon": ("amazon.com", "amazon", "prime"),
+    "ebay": ("ebay.com", "ebay"),
+    "dyson": ("dyson.com", "dyson"),
+    "adidas": ("adidas.com", "adidas"),
+    "apple-store": (),
+    "n26": ("n26.com", "n26"),
+    "revolut": ("revolut.com", "revolut"),
+    "wise": ("wise.com", "wisesender.com", "wise"),
+    "postnl": ("post.nl", "postnl"),
+    "dlv": ("dlv.nl", "dlv"),
+    "bpost": ("bpost.be", "bpost"),
+    "dhl": ("dhl.com", "dhl", "dhlec"),
+    "fedex": ("fedex.com", "fedex"),
+    "ups": ("ups.com", "ups"),
+    "bradesco": ("bradesco.com.br", "bradesco"),
+    "itau": ("itau.com.br", "itau"),
+    "knab": ("knab.nl", "knab"),
+    "rabobank": ("rabobank.nl", "rabobank"),
+    "ing": ("ing.com", "ing.nl", "ing-bank"),
+    "sns-bank": ("snsbank.nl", "sns bank"),
+    "bunq": ("bunq.com", "bunq"),
+    "coinbase": ("coinbase.com", "coinbase"),
+    "binance": ("binance.com", "binance"),
+    "ledger": ("ledger.com", "ledger"),
+    "crypto": (),
+    "metamask": ("metamask.io", "metamask"),
+    "poe": ("poe.com", "poe"),
+    "openai": ("openai.com", "openai"),
+    "meta-ai": ("meta.ai", "meta ai"),
+    "airline": (),
+    "dutch-tax": (),
+}
+URGENCY_PATTERN = re.compile(
+    r"\b(within (24|48) hours?|24 hours|48 hours|last chance|final (notice|warning|reminder)|immediat\w+|act now|urgent\b|no later than\b|by (midnight|end of day|9:5[09])\b|today only|expires? (today|now|immediately)\b|deadline\b|within one day\b|(?:suspension|lock(?:out)?|freeze|block)(?: of| to)? your account\b|om (meteen|direct)\b|uiterlijk\b|vandaag\b|within (24|48)\b)"  # noqa: E501
+)
+GENERIC_SALUTATION_PATTERN = re.compile(
+    r"(?:dear (?:customer|client|user|member|valued)|hallo\b\s*[,;:]|hello\b\s*[,;:]|bonjour\b|guten tag\b|liebe[rs]\b|geachte[rs]\b|estimat[oa]\b|estimat[ao]|cari[as]?\b|caro[oa]\b|d\u00e9ar\b|querido[as]?\b)"  # noqa: E501
+)
+NAMED_SALUTATION_PATTERN = re.compile(
+    r"^(?:hi|hey|hallo|hello|bonjour|guten tag|liebe[rs]|geachte[rs]|estimat[oa]|cari[as]?|caro[oa])\s+(?:\"|\u201c)?([a-z\u00e0-\u00ff]{4,})"  # noqa: E501
+)
+GENERIC_NAME_WORDS: Final = frozenset(
+    {
+        "customer",
+        "client",
+        "user",
+        "member",
+        "valued",
+        "friend",
+        "team",
+        "everyone",
+        "someone",
+        "dear",
+        "hello",
+        "hi",
+    }
+)
+MIN_STOPWORD_HITS: Final = 3
+LAST_TWO_LABELS: Final = 2
+LANGUAGE_STOPWORDS: Final = {
+    "en": frozenset(
+        {
+            "your", "you", "our", "the", "and", "account", "please", "click",
+            "here", "update", "verify", "security", "we", "will", "not", "for",
+            "with", "from",
+        }
+    ),
+    "de": frozenset(
+        {
+            "und", "nicht", "ihre", "ihrer", "ihren", "ihres", "das", "die",
+            "den", "dem", "ein", "eine", "sich", "bitte", "wir", "sind",
+            "haben", "kann", "muss", "soll", "auch", "für", "mit",
+        }
+    ),
+    "pt": frozenset(
+        {
+            "você", "para", "com", "nossa", "sua", "seu", "seus",
+            "este", "esta", "isso", "mais", "como", "pela",
+            "pelo", "vcs", "cartão", "pontos",
+        }
+    ),
+    "nl": frozenset(
+        {
+            "u", "uw", "de", "het", "een", "en", "niet", "met", "van", "voor",
+            "naar", "ook", "kan", "moet", "zou", "zijn", "is", "bij",
+        }
+    ),
+    "fr": frozenset(
+        {
+            "vous", "votre", "vos", "et", "le", "la", "les", "une", "des",
+            "pour", "avec", "dans", "sur", "pas", "mais", "aussi", "sera",
+        }
+    ),
+    "es": frozenset(
+        {
+            "su", "sus", "y", "la", "el", "los", "las", "un", "una", "para",
+            "con", "en", "de", "por", "que", "no", "como", "está",
+        }
+    ),
+    "it": frozenset(
+        {
+            "e", "la", "il", "un", "una", "per", "con", "di", "a", "che",
+            "non", "ma", "sono", "hai", "suo", "lei",
+        }
+    ),
+}
 STANDARD_CHARSETS: Final = frozenset({"utf-8", "us-ascii"})
 MIN_QUOTED_NAME_LENGTH: Final = 2
 SKIP_TAGS: Final = frozenset({"script", "style"})
@@ -72,12 +226,13 @@ def extract_feature_record(
     envelope_domain = _address_domain(_decoded_header(message, "Return-Path"))
     urls: tuple[str, ...] = tuple(URL_PATTERN.findall(body_text)) + href_urls
     url_hosts = tuple(host for host in (_url_host(url) for url in urls) if host)
+    raw_subject = _decoded_header(message, "Subject")
     safe_body = _safe_text(body_text)
     quality_flags = _quality_flags(message, safe_body, flags)
     auth = _auth_results(message)
     return FeatureRecord(
         source=source,
-        subject=_safe_text(_decoded_header(message, "Subject")),
+        subject=_safe_text(raw_subject),
         body_evidence=safe_body,
         from_domain=from_domain,
         reply_to_domain=reply_to_domain,
@@ -104,6 +259,19 @@ def extract_feature_record(
             config_digest=source.sha256,
             model_identifier="openai/gpt-5.6-terra",
         ),
+        subject_math_stylized=has_math_stylization(raw_subject),
+        body_encoded=is_encoded_body(safe_body),
+        url_hosts=tuple(sorted({_last_two_labels(host) for host in url_hosts})),
+        url_host_classes=tuple(sorted({_url_host_class(host) for host in url_hosts})),
+        salutation=_salutation(raw_subject, safe_body),
+        urgency=_urgency_level(raw_subject, safe_body),
+        brand_claims=_brand_claims(
+            _display_name(_decoded_header(message, "From")),
+            raw_subject,
+            safe_body,
+            from_domain,
+        ),
+        body_math_stylized=has_math_stylization(safe_body),
     )
 
 
@@ -320,6 +488,68 @@ def _url_host(url: str) -> str:
     return "" if host is None else host.lower().rstrip(".")
 
 
+def _last_two_labels(host: str) -> str:
+    """Return the normalized last-two-label token for a URL host."""
+    parts = [part for part in host.split(".") if part]
+    return ".".join(parts[-2:]) if len(parts) >= LAST_TWO_LABELS else host
+
+
+def _url_host_class(host: str) -> str:
+    """Classify one URL host by its risk-bearing structural tell."""
+    if host and re.fullmatch(r"(?:\d{1,3}\.){3}\d{1,3}", host):
+        return "ip-literal"
+    if host in CDN_HOST_SUFFIXES or any(
+        host.endswith("." + suffix) for suffix in CDN_HOST_SUFFIXES
+    ):
+        return "cdn-hosted"
+    parts = [part for part in host.split(".") if part]
+    if len(parts) >= LAST_TWO_LABELS:
+        two_label = ".".join(parts[-2:])
+        if two_label in FREE_SUBDOMAIN_SUFFIXES:
+            return "free-subdomain"
+    if len(parts) == 1:
+        return "normal"
+    tld = parts[-1]
+    if tld in DISPOSABLE_TLDS:
+        return "disposable-tld"
+    return "normal"
+
+
+def _salutation(subject: str, body: str) -> str:
+    """Return none|generic|named for the first salutation in the email."""
+    text = f"{subject} {body[:400]}".casefold()
+    named = NAMED_SALUTATION_PATTERN.search(text)
+    if named and named.group(1) not in GENERIC_NAME_WORDS:
+        return "named"
+    if GENERIC_SALUTATION_PATTERN.search(text):
+        return "generic"
+    return "none"
+
+
+def _urgency_level(subject: str, body: str) -> int:
+    """Bucket deadline/threat/payment-tell match counts as 0, 1, or 2+."""
+    text = f"{subject} {body[:1200]}".casefold()
+    matches: set[str] = set()
+    for match in URGENCY_PATTERN.finditer(text):
+        matches.add(match.group(0))
+    return min(2, len(matches))
+
+
+def _brand_claims(
+    display_name: str, subject: str, body: str, from_domain: str
+) -> tuple[str, ...]:
+    """Return static brand slugs claimed in text but absent from the sender domain."""
+    text = f"{display_name} {subject} {body[:800]}".casefold()
+    claims: set[str] = set()
+    for brand, tokens in BRAND_CLAIM_BRANDS.items():
+        if not any(token and token in text for token in tokens):
+            continue
+        if any(token and token in from_domain.casefold() for token in tokens[:3]):
+            continue
+        claims.add(brand)
+    return tuple(sorted(claims))
+
+
 def _host_hash(host: str) -> str:
     return hashlib.sha256(host.encode()).hexdigest()
 
@@ -335,10 +565,17 @@ def _url_host_matches_from(url_hosts: tuple[str, ...], from_domain: str) -> bool
 
 
 def _language_indicators(text: str) -> tuple[str, ...]:
-    labels: set[str] = {"ascii"} if text.isascii() else {"unicode"}
+    """Return deterministic stopword-frequency language codes, plus cjk when present."""
+    words = set(
+        re.findall(r"[a-z\u00e0-\u00ff]{3,}", text.casefold())
+    )
+    labels: set[str] = set()
+    for language, stopwords in LANGUAGE_STOPWORDS.items():
+        if len(words & stopwords) >= MIN_STOPWORD_HITS:
+            labels.add(language)
     if any("CJK" in unicodedata.name(char, "") for char in text):
         labels.add("cjk")
-    return tuple(sorted(labels))
+    return tuple(sorted(labels)) if labels else ("other",)
 
 
 def _has_unicode_obfuscation(text: str) -> bool:
@@ -381,4 +618,6 @@ def _empty_feature(source: SourceRecord) -> FeatureRecord:
         header_encoding_anomaly=False,
         quality_flags=("empty",),
         provenance=Provenance("unavailable", source.sha256, "openai/gpt-5.6-terra"),
+        subject_math_stylized=False,
+        body_encoded=False,
     )

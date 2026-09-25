@@ -105,6 +105,33 @@ def test_load_registry_rejects_unknown_rule_op() -> None:
         _ = load_registry(FIXTURES / "bad-op.toml")
 
 
+def test_registry_accepts_gt_on_int_field() -> None:
+    # Given: a registry whose rule compares an integer field with gt.
+    registry = load_registry(FIXTURES / "gt-op.toml")
+
+    # Then: the op and threshold survive validation.
+    category, = registry.categories
+    assert category.rules[0].op == "gt"
+    assert category.rules[0].field == "url_count"
+    assert category.rules[0].value == 0
+
+
+def test_registry_rejects_gt_on_bool_field() -> None:
+    # Given: a registry applying gt to a boolean field.
+    # When: the registry is loaded.
+    # Then: the field/op mismatch is rejected.
+    with pytest.raises(RegistryError, match="op 'gt' cannot be applied"):
+        _ = load_registry(FIXTURES / "gt-bool-field.toml")
+
+
+def test_registry_rejects_gt_with_non_integer_value() -> None:
+    # Given: a registry whose gt rule carries a string value.
+    # When: the registry is loaded.
+    # Then: the value type is rejected.
+    with pytest.raises(RegistryError, match="integer"):
+        _ = load_registry(FIXTURES / "gt-string-value.toml")
+
+
 def test_load_registry_rejects_unknown_rule_field() -> None:
     # Given: a registry whose rule references a field outside the contract.
     # When: the registry is loaded.

@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from phishing_contract.classify import Decision
@@ -7,6 +9,7 @@ from phishing_contract.report import (
     check_acceptance,
     diff_decisions,
     serialize_diff,
+    serialize_summary,
     summarize_decisions,
 )
 
@@ -89,6 +92,37 @@ def test_serialize_diff_is_stable_canonical_json() -> None:
     assert first == second
     assert first.startswith("{")
     assert first.endswith("\n")
+
+
+def test_summary_type_counts_with_registry() -> None:
+    # Given: a registry that maps category ids to top-level phish types.
+    registry = CategoryRegistry(
+        schema_version=4,
+        categories=(
+            Category(id="login-lure", bucket="account-security", description="d",
+                     action="a", priority=31, type="credential-theft",
+                     rules=(), signals=(), min_signals=0, acceptance=()),
+            Category(id="password-reset", bucket="account-security", description="d",
+                     action="a", priority=31, type="credential-theft",
+                     rules=(), signals=(), min_signals=0, acceptance=()),
+        ),
+        source_sha256="0" * 64,
+    )
+    decisions = (
+        _decision(1, "unmatched"),
+        _decision(2, "login-lure", "account-security"),
+        _decision(3, "password-reset", "account-security"),
+        _decision(4, "needs_review"),
+    )
+
+    # When: the decisions are summarized with the registry supplied.
+    summary = summarize_decisions(decisions, registry)
+
+    # Then: only matched decisions are counted, grouped by phish type.
+    assert summary.type_counts == (("credential-theft", 2),)
+    assert json.loads(serialize_summary(summary))["type_counts"] == {
+        "credential-theft": 2
+    }
 
 
 def test_summary_counts_every_bucket_sorted() -> None:

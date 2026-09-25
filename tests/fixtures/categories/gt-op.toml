@@ -1,0 +1,15 @@
+schema_version = 1
+
+[[category]]
+id = "url-bearing-mail"
+type = "bulk-commercial"
+bucket = "url-bearing-mail"
+description = "Messages carrying at least one URL"
+action = "flag"
+priority = 10
+acceptance = []
+
+[[category.rules]]
+field = "url_count"
+op = "gt"
+value = 0

@@ -13,7 +13,11 @@ from phishing_contract.classify import (
     load_decisions,
     write_decisions,
 )
-from phishing_contract.discover import discover_clusters, write_dossiers
+from phishing_contract.discover import (
+    discover_clusters,
+    stability_sweep,
+    write_dossiers,
+)
 from phishing_contract.features import (
     extract_feature_record,
     extract_feature_records,
@@ -276,7 +280,7 @@ def _run_classify(arguments: tuple[str, ...]) -> int:
     decisions_path = command.output_directory / f"{command.run_id}.decisions.jsonl"
     summary_path = command.output_directory / f"{command.run_id}.summary.json"
     write_decisions(decisions, decisions_path)
-    summary = serialize_summary(summarize_decisions(decisions))
+    summary = serialize_summary(summarize_decisions(decisions, registry))
     _ = summary_path.write_text(summary + "\n", encoding="utf-8")
     try:
         check_acceptance(registry, decisions)
@@ -341,6 +345,11 @@ def _run_discover(arguments: tuple[str, ...]) -> int:
         output_path=output_path,
         threshold=command.threshold,
         min_cluster_size=command.min_cluster_size,
+        stability=stability_sweep(
+            unmatched, min_cluster_size=command.min_cluster_size
+        )
+        if unmatched
+        else None,
     )
     _ = sys.stdout.write(f"{output_path}\n")
     return 0

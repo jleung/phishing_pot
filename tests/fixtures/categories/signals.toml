@@ -2,6 +2,7 @@ schema_version = 1
 
 [[category]]
 id = "account-risk-residual"
+type = "bulk-commercial"
 bucket = "account-security"
 description = "Broad account-security residual requiring two soft signals"
 action = "flag"

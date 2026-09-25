@@ -4,6 +4,7 @@ schema_version = 1
 
 [[category]]
 id = "account-signin-alert"
+type = "bulk-commercial"
 bucket = "account-security"
 description = "Account security / unusual sign-in alerts harvesting credentials"
 action = "quarantine"
@@ -17,6 +18,7 @@ value = "(?i)unusual signin"
 
 [[category]]
 id = "crypto-wallet-verification"
+type = "bulk-commercial"
 bucket = "crypto"
 description = "Wallet / asset access verification lures targeting crypto holders"
 action = "quarantine"
@@ -30,6 +32,7 @@ value = "(?i)unauthorized (access|transaction)"
 
 [[category]]
 id = "points-expiry"
+type = "bulk-commercial"
 bucket = "rewards-promotions"
 description = "Loyalty / bank points expiry lures (Livelo and similar)"
 action = "quarantine"
@@ -43,6 +46,7 @@ value = "(?i)pontos.{0,80}expir"
 
 [[category]]
 id = "investment-lure"
+type = "bulk-commercial"
 bucket = "financial"
 description = "Investment proposition lures, often RE: reply chains"
 action = "flag"
@@ -58,6 +62,7 @@ value = "(?i)investment proposition"
 
 [[category]]
 id = "customs-package-hold"
+type = "bulk-commercial"
 bucket = "logistics"
 description = "Correios/customs lures claiming a package is held at the border"
 action = "quarantine"
@@ -71,6 +76,7 @@ value = "(?i)pedido foi bloqueado pela fiscaliza"
 
 [[category]]
 id = "cpf-tax-notice"
+type = "bulk-commercial"
 bucket = "government-legal"
 description = "Fake Receita Federal notices about CPF regularisation fees"
 action = "quarantine"
@@ -84,6 +90,7 @@ value = "(?i)\\bcpf\\b"
 
 [[category]]
 id = "cnh-suspension"
+type = "bulk-commercial"
 bucket = "government-legal"
 description = "Fake DETRAN notices threatening driving-license suspension"
 action = "quarantine"
@@ -97,6 +104,7 @@ value = "(?i)\\bcnh\\b"
 
 [[category]]
 id = "ledger-lure"
+type = "bulk-commercial"
 bucket = "crypto"
 description = "Ledger hardware-wallet lures (data breach, reminders, updates)"
 action = "quarantine"
@@ -110,6 +118,7 @@ value = "(?i)ledger"
 
 [[category]]
 id = "casino-bonus"
+type = "bulk-commercial"
 bucket = "rewards-promotions"
 description = "German casino bonus / freespins no-deposit spam"
 action = "flag"
@@ -123,6 +132,7 @@ value = "(?i)(casino bonus|freispiel|einzahlung)"
 
 [[category]]
 id = "login-alert-obfuscated"
+type = "bulk-commercial"
 bucket = "account-security"
 description = "Login attempt alerts with character-substitution obfuscation"
 action = "quarantine"
@@ -136,6 +146,7 @@ value = "(?i)tried to [1li]og in"
 
 [[category]]
 id = "prize-won"
+type = "bulk-commercial"
 bucket = "rewards-promotions"
 description = "Prize / giveaway spam ('You have won an ...', German 'Gewinnen')"
 action = "flag"
@@ -149,6 +160,7 @@ value = "(?i)(you have won|gewinnen)"
 
 [[category]]
 id = "bank-block-alert"
+type = "bulk-commercial"
 bucket = "financial"
 description = "Bank account blocked / suspended alerts demanding action"
 action = "quarantine"
@@ -162,6 +174,7 @@ value = "(?i)(account has been blocked|conta (foi|esteve) bloqueada)"
 
 [[category]]
 id = "payment-confirmation"
+type = "bulk-commercial"
 bucket = "financial"
 description = "Fake payment report / successful payment confirmations"
 action = "quarantine"
@@ -175,6 +188,7 @@ value = "(?i)\\bpayment (report|successful)\\b"
 
 [[category]]
 id = "wallet-update"
+type = "bulk-commercial"
 bucket = "crypto"
 description = "Trust Wallet / MetaMask update and access lures"
 action = "quarantine"
@@ -188,6 +202,7 @@ value = "(?i)(trust wallet|metamask)"
 
 [[category]]
 id = "fbi-letter"
+type = "bulk-commercial"
 bucket = "government-legal"
 description = "Fake FBI letters impersonating law enforcement"
 action = "quarantine"
@@ -201,6 +216,7 @@ value = "(?i)federal bureau of investigation"
 
 [[category]]
 id = "temu-survey"
+type = "bulk-commercial"
 bucket = "commerce-spam"
 description = "Temu shopping-experience survey reward spam"
 action = "flag"
@@ -214,6 +230,7 @@ value = "(?i)rate your shopping experience"
 
 [[category]]
 id = "advance-fee-legacy"
+type = "bulk-commercial"
 bucket = "financial"
 description = "Classic advance-fee / 'valued beneficiary' correspondence lures"
 action = "flag"
@@ -229,6 +246,7 @@ value = "(?i)dear valued beneficiary"
 
 [[category]]
 id = "import-tax-notice"
+type = "bulk-commercial"
 bucket = "logistics"
 description = "Importation fee / customs tax regularisation lures for held packages"
 action = "quarantine"
@@ -242,6 +260,7 @@ value = "(?i)(taxa de importacao|pedido foi taxado)"
 
 [[category]]
 id = "bank-unblock-lure"
+type = "bulk-commercial"
 bucket = "financial"
 description = "Portuguese bank lures: temporary block / unblock internet banking"
 action = "quarantine"
@@ -255,6 +274,7 @@ value = "(?i)(desbloqueie seu|internet banking|temporariamente bloqueada)"
 
 [[category]]
 id = "account-verification"
+type = "bulk-commercial"
 bucket = "account-security"
 description = "Urgent account-verification lures addressing the victim by name"
 action = "quarantine"
@@ -268,6 +288,7 @@ value = "(?i)account verification required"
 
 [[category]]
 id = "german-prosecution"
+type = "bulk-commercial"
 bucket = "government-legal"
 description = "German prosecution / indictment letter lures (Anklageschreiben)"
 action = "quarantine"
@@ -281,6 +302,7 @@ value = "(?i)anklageschreiben"
 
 [[category]]
 id = "lucky-winner-confirmation"
+type = "bulk-commercial"
 bucket = "rewards-promotions"
 description = "Prize confirmation-code and lucky-winner lures (Confirmation-NNN)"
 action = "flag"
@@ -294,6 +316,7 @@ value = "(?i)(confirmation-\\d+|lucky online winner)"
 
 [[category]]
 id = "crypto-staking"
+type = "bulk-commercial"
 bucket = "crypto"
 description = "Staking / airdrop feature lures targeting crypto holders"
 action = "quarantine"
@@ -307,6 +330,7 @@ value = "(?i)\\bstaking\\b"
 
 [[category]]
 id = "wholesale-spam"
+type = "bulk-commercial"
 bucket = "commerce-spam"
 description = "Wholesale survey / cleansing offer spam templates"
 action = "flag"
@@ -320,6 +344,7 @@ value = "(?i)wholesale"
 
 [[category]]
 id = "device-access-alert"
+type = "bulk-commercial"
 bucket = "account-security"
 description = "New-device login alerts in Portuguese (novo dispositivo)"
 action = "quarantine"
@@ -333,6 +358,7 @@ value = "(?i)novo dispositivo"
 
 [[category]]
 id = "photos-deletion-alert"
+type = "bulk-commercial"
 bucket = "account-security"
 description = "Account blocked / photos-deletion threats demanding verification"
 action = "quarantine"
@@ -346,6 +372,7 @@ value = "(?i)(photos and videos will be deleted|account access is at risk)"
 
 [[category]]
 id = "discount-code-spam"
+type = "bulk-commercial"
 bucket = "commerce-spam"
 description = "Discount code / saving pass promotional lures"
 action = "flag"
@@ -359,6 +386,7 @@ value = "(?i)(discount code|saving pass)"
 
 [[category]]
 id = "stylized-unicode-subject"
+type = "bulk-commercial"
 bucket = "technique"
 description = "Lures whose subject is stylized with math-alphanumeric unicode"
 action = "flag"
@@ -374,6 +402,7 @@ value = "[\U0001D000-\U0001DFFF]"
 
 [[category]]
 id = "account-security-residual"
+type = "bulk-commercial"
 bucket = "account-security"
 description = "Broad account-security lures that do not match a named subtype"
 action = "quarantine"
@@ -393,6 +422,7 @@ value = "(?i)(account|login|password|verify|verification|security|suspended|unau
 
 [[category]]
 id = "crypto-residual"
+type = "bulk-commercial"
 bucket = "crypto"
 description = "Broad crypto wallet, token, staking, and airdrop lures"
 action = "quarantine"
@@ -412,6 +442,7 @@ value = "(?i)(crypto|wallet|ledger|metamask|staking|airdrop|bitcoin|btc|ethereum
 
 [[category]]
 id = "financial-residual"
+type = "bulk-commercial"
 bucket = "financial"
 description = "Broad financial, banking, payment, invoice, and beneficiary lures"
 action = "quarantine"
@@ -431,6 +462,7 @@ value = "(?i)(bank|payment|invoice|transfer|beneficiary|investment|loan)"
 
 [[category]]
 id = "logistics-residual"
+type = "bulk-commercial"
 bucket = "logistics"
 description = "Broad package, customs, shipment, delivery, and import-tax lures"
 action = "quarantine"
@@ -450,6 +482,7 @@ value = "(?i)(package|delivery|correios|customs|import|taxa|shipment|pedido|trac
 
 [[category]]
 id = "government-legal-residual"
+type = "bulk-commercial"
 bucket = "government-legal"
 description = "Broad government, legal, tax-agency, and law-enforcement lures"
 action = "quarantine"
@@ -469,6 +502,7 @@ value = "(?i)(cpf|cnh|receita|detran|federal|bureau|investigation|prosecution|an
 
 [[category]]
 id = "rewards-promotions-residual"
+type = "bulk-commercial"
 bucket = "rewards-promotions"
 description = "Broad prize, reward, loyalty-points, casino, and giveaway lures"
 action = "flag"
@@ -488,6 +522,7 @@ value = "(?i)(won|winner|prize|bonus|points|pontos|expiry|reward|gift|casino|gew
 
 [[category]]
 id = "commerce-spam-residual"
+type = "bulk-commercial"
 bucket = "commerce-spam"
 description = "Broad shopping, survey, discount, wholesale, coupon, and offer spam"
 action = "flag"

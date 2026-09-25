@@ -8,10 +8,19 @@ from typing import Final, cast, override
 
 from phishing_contract.models import FeatureRecord
 from phishing_contract.registry import Category, CategoryRegistry, Rule
+from phishing_contract.textfold import fold
 
 UNMATCHED: Final = "unmatched"
 NEEDS_REVIEW: Final = "needs_review"
 EVIDENCE_EXCERPT_LIMIT: Final = 80
+CONFIDENCE_MIN_SIGNALS: Final = 2
+RISKY_HOST_CLASSES: Final = frozenset(
+    {"ip-literal", "free-subdomain", "cdn-hosted", "disposable-tld"}
+)
+# Text fields that rules always match against in normalized form.
+_FOLDED_TEXT_FIELDS: Final = frozenset(
+    {"subject", "body_evidence", "from_display_name"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +61,8 @@ class Decision:
     fallback_reason: str | None
     registry_sha256: str
     source_sha256: str
+    confidence: str = "high"
+    flags: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,27 +143,32 @@ def classify_record(record: FeatureRecord, registry: CategoryRegistry) -> Decisi
     tied = [match for match in ranked if match.category.priority == top_priority]
 
     if len(tied) > 1:
-        tie_ids = "|".join(match.category.id for match in tied)
-        return Decision(
-            sample_id=int(record.source.sample_id),
-            relative_path=record.source.relative_path,
-            decision=NEEDS_REVIEW,
-            bucket=NEEDS_REVIEW,
-            action=None,
-            matched_rules=(),
-            matched_signals=(),
-            signal_score=0,
-            rejected_candidates=tuple(
-                _rejected_candidate(match, NEEDS_REVIEW) for match in tied
-            ),
-            fallback_reason=f"priority_tie:{tie_ids}",
-            registry_sha256=registry.source_sha256,
-            source_sha256=record.source.sha256,
-        )
-
-    winner = ranked[0]
+        tie_breaker = _pick_tie_breaker(tied)
+        if tie_breaker is None:
+            tie_ids = "|".join(match.category.id for match in tied)
+            return Decision(
+                sample_id=int(record.source.sample_id),
+                relative_path=record.source.relative_path,
+                decision=NEEDS_REVIEW,
+                bucket=NEEDS_REVIEW,
+                action=None,
+                matched_rules=(),
+                matched_signals=(),
+                signal_score=0,
+                rejected_candidates=tuple(
+                    _rejected_candidate(match, NEEDS_REVIEW) for match in tied
+                ),
+                fallback_reason=f"priority_tie:{tie_ids}",
+                registry_sha256=registry.source_sha256,
+                source_sha256=record.source.sha256,
+            )
+        winner = tie_breaker
+    else:
+        winner = ranked[0]
     rejected = tuple(
-        _rejected_candidate(match, winner.category.id) for match in ranked[1:]
+        _rejected_candidate(match, winner.category.id)
+        for match in ranked
+        if match is not winner
     )
     return Decision(
         sample_id=int(record.source.sample_id),
@@ -167,7 +183,36 @@ def classify_record(record: FeatureRecord, registry: CategoryRegistry) -> Decisi
         fallback_reason=None,
         registry_sha256=registry.source_sha256,
         source_sha256=record.source.sha256,
+        confidence=winner.category.confidence
+        if not winner.matched_rules and winner.signal_score < CONFIDENCE_MIN_SIGNALS
+        else "high",
+        flags=_decision_flags(record),
     )
+
+
+def _pick_tie_breaker(tied: list[_CandidateMatch]) -> _CandidateMatch | None:
+    """Pick a unique winner among equal-priority candidates, if one is clear.
+
+    A lone rule-based candidate beats signal-only candidates. Among several
+    rule-based candidates the one with more matched rules wins, then a higher
+    signal score; anything still tied is left for review.
+    """
+    rule_based = [match for match in tied if match.matched_rules]
+    if len(rule_based) == 1:
+        return rule_based[0]
+    if len(rule_based) > 1:
+        best_rules = max(len(match.matched_rules) for match in rule_based)
+        leaders = [
+            match for match in rule_based
+            if len(match.matched_rules) == best_rules
+        ]
+        if len(leaders) == 1:
+            return leaders[0]
+        best_score = max(match.signal_score for match in leaders)
+        leaders = [match for match in leaders if match.signal_score == best_score]
+        if len(leaders) == 1:
+            return leaders[0]
+    return None
 
 
 def _rejected_candidate(match: _CandidateMatch, lost_to: str) -> RejectedCandidate:
@@ -180,6 +225,65 @@ def _rejected_candidate(match: _CandidateMatch, lost_to: str) -> RejectedCandida
         signal_score=match.signal_score,
         lost_to=lost_to,
     )
+
+
+def _decision_flags(record: FeatureRecord) -> tuple[str, ...]:
+    """Emit the deterministic technique flags that ride along with a decision."""
+    flags: list[str] = []
+    if record.attachments:
+        flags.append("attachment-led")
+    elif record.url_count > 0:
+        flags.append("link-led")
+    else:
+        flags.append("plain")
+    flags.extend(
+        f"host:{host_class}"
+        for host_class in record.url_host_classes
+        if host_class in RISKY_HOST_CLASSES
+    )
+    if _obfuscated(record):
+        flags.append("obfuscated-unicode")
+    if record.body_encoded:
+        flags.append("encoded-body")
+    flags.extend(f"brand-claim:{brand}" for brand in record.brand_claims)
+    flags.extend(_spoof_flags(record))
+    flags.extend(_auth_flags(record))
+    return tuple(sorted(flags))
+
+
+def _obfuscated(record: FeatureRecord) -> bool:
+    """Return True when any unicode-obfuscation tell is present."""
+    return bool(
+        record.unicode_obfuscation
+        or record.subject_math_stylized
+        or record.body_math_stylized
+    )
+
+
+def _spoof_flags(record: FeatureRecord) -> list[str]:
+    """Return sender-domain disagreement flags."""
+    flags: list[str] = []
+    if record.from_domain and (
+        (record.reply_to_domain and record.reply_to_domain != record.from_domain)
+        or (record.envelope_domain and record.envelope_domain != record.from_domain)
+    ):
+        flags.append("spoof")
+    if record.from_domain and record.reply_to_domain and not record.sender_reply_agree:
+        flags.append("replyto-mismatch")
+    return flags
+
+
+def _auth_flags(record: FeatureRecord) -> list[str]:
+    """Return per-mechanism authentication failure flags."""
+    flags: list[str] = []
+    for mechanism, flag in (
+        ("spf_result", "spf-fail"),
+        ("dkim_result", "dkim-fail"),
+        ("dmarc_result", "dmarc-fail"),
+    ):
+        if getattr(record, mechanism) in {"fail", "softfail"}:
+            flags.append(flag)
+    return flags
 
 
 def serialize_decision(decision: Decision) -> str:
@@ -215,6 +319,8 @@ def serialize_decision(decision: Decision) -> str:
         "fallback_reason": decision.fallback_reason,
         "registry_sha256": decision.registry_sha256,
         "source_sha256": decision.source_sha256,
+        "confidence": decision.confidence,
+        "flags": list(decision.flags),
     }
     return json.dumps(payload, sort_keys=True) + "\n"
 
@@ -225,7 +331,6 @@ def _matched_rule_json(rule: MatchedRule) -> dict[str, str]:
         "op": rule.op,
         "matched_evidence": rule.matched_evidence,
     }
-
 
 def write_decisions(decisions: tuple[Decision, ...], output_path: Path) -> None:
     """Write the decision audit trail in the caller's deterministic order."""
@@ -266,6 +371,11 @@ def load_decisions(path: Path) -> tuple[Decision, ...]:
                 ),
                 registry_sha256=str(payload["registry_sha256"]),
                 source_sha256=str(payload["source_sha256"]),
+                confidence=str(payload.get("confidence", "high")),
+                flags=tuple(
+                    str(flag)
+                    for flag in _list_field(payload, "flags")
+                ),
             )
         )
     return tuple(decisions)
@@ -331,6 +441,8 @@ def _evaluate_rule(rule: Rule, record: FeatureRecord) -> MatchedRule | None:
         return _regex_match(rule, record)
     if rule.op == "eq":
         return _eq_match(rule, record)
+    if rule.op == "gt":
+        return _gt_match(rule, record)
     if rule.op == "in":
         return _in_match(rule, record)
     if rule.op == "extension_in":
@@ -357,6 +469,8 @@ def _field_value(record: FeatureRecord, field: str) -> object:
         "dkim_result": record.dkim_result,
         "dmarc_result": record.dmarc_result,
         "header_encoding_anomaly": record.header_encoding_anomaly,
+        "subject_math_stylized": record.subject_math_stylized,
+        "body_encoded": record.body_encoded,
         "url_host_matches_from": record.url_host_matches_from,
         "quality_flags": record.quality_flags,
         "languages": record.languages,
@@ -372,8 +486,9 @@ def _regex_match(rule: Rule, record: FeatureRecord) -> MatchedRule | None:
     if not isinstance(raw, str):
         message = f"Field {rule.field} is not text"
         raise ClassificationError(message=message)
+    text = fold(raw) if rule.field in _FOLDED_TEXT_FIELDS else raw
     pattern = re.compile(str(rule.value))
-    match = pattern.search(raw)
+    match = pattern.search(text)
     if match is None:
         return None
     excerpt = match.group(0)
@@ -384,9 +499,25 @@ def _regex_match(rule: Rule, record: FeatureRecord) -> MatchedRule | None:
 
 def _eq_match(rule: Rule, record: FeatureRecord) -> MatchedRule | None:
     value = _field_value(record, rule.field)
+    if isinstance(value, str) and rule.field in _FOLDED_TEXT_FIELDS:
+        value = fold(value)
     if value != rule.value:
         return None
     return MatchedRule(field=rule.field, op=rule.op, matched_evidence=str(value))
+
+
+def _gt_match(rule: Rule, record: FeatureRecord) -> MatchedRule | None:
+    value = _field_value(record, rule.field)
+    threshold = rule.value
+    if isinstance(value, bool) or not isinstance(value, int):
+        message = f"Field {rule.field} is not an integer"
+        raise ClassificationError(message=message)
+    if isinstance(threshold, bool) or not isinstance(threshold, int):
+        message = "gt op requires an integer threshold"
+        raise ClassificationError(message=message)
+    if value <= threshold:
+        return None
+    return MatchedRule(field=rule.field, op="gt", matched_evidence=str(value))
 
 
 def _in_match(rule: Rule, record: FeatureRecord) -> MatchedRule | None:
